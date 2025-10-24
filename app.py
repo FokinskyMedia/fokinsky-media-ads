@@ -304,10 +304,10 @@ def delete_order(id):
     db.session.commit()
     flash('Удалено', 'info')
     return redirect(url_for('orders'))
-
+port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         print("База данных создана!")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=port, debug=True)
