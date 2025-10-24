@@ -1,1 +1,33 @@
-{% extends 'blogger_form.html' %}
+{% extends 'base.html' %}
+{% block content %}
+<h2>Форма проекта</h2>
+<form method="post">
+  {{ form.hidden_tag() }}
+  
+  <div class="mb-3">
+    {{ form.name.label(class_='form-label') }}
+    {{ form.name(class_='form-control') }}
+    {% if form.name.errors %}
+      <div class="text-danger">{{ form.name.errors[0] }}</div>
+    {% endif %}
+  </div>
+  
+  <div class="mb-3">
+    {{ form.month.label(class_='form-label') }}
+    {{ form.month(class_='form-control', placeholder='Октябрь 2024') }}
+  </div>
+  
+  <div class="mb-3">
+    {{ form.description.label(class_='form-label') }}
+    {{ form.description(class_='form-control', rows='4', placeholder='Описание проекта') }}
+  </div>
+  
+  <div class="mb-3">
+    {{ form.status.label(class_='form-label') }}
+    {{ form.status(class_='form-control') }}
+  </div>
+  
+  <button class="btn btn-primary">Сохранить</button>
+  <a href="/projects" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
