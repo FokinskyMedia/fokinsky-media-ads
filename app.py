@@ -250,16 +250,49 @@ def orders():
 @app.route('/order/add', methods=['GET','POST'])
 def add_order():
     form = OrderForm()
-    # Заполняем выборы
-    form.blogger.choices = [(b.id, b.name) for b in Blogger.query.order_by(Blogger.name).all()]
-    form.advertiser.choices = [(a.id, a.name) for a in Advertiser.query.order_by(Advertiser.name).all()]
+    
+    # Заполняем выборы из существующих
+    form.blogger.choices = [(0, '-- Новый блогер --')] + [(b.id, b.name) for b in Blogger.query.order_by(Blogger.name).all()]
+    form.advertiser.choices = [(0, '-- Новый рекламодатель --')] + [(a.id, a.name) for a in Advertiser.query.order_by(Advertiser.name).all()]
     form.project.choices = [(p.id, p.name) for p in Project.query.order_by(Project.name).all()]
     
     if form.validate_on_submit():
+        # Обработка нового блогера
+        if form.blogger.data == 0:  # Выбран "Новый блогер"
+            new_blogger = Blogger(
+                name=request.form.get('new_blogger_name', '').strip(),
+                platform=request.form.get('new_blogger_platform', 'tg'),
+                link=request.form.get('new_blogger_link', '')
+            )
+            if new_blogger.name:  # Если имя указано
+                db.session.add(new_blogger)
+                db.session.flush()  # Получаем ID без коммита
+                blogger_id = new_blogger.id
+            else:
+                blogger_id = None
+        else:
+            blogger_id = form.blogger.data
+
+        # Обработка нового рекламодателя
+        if form.advertiser.data == 0:  # Выбран "Новый рекламодатель"
+            new_advertiser = Advertiser(
+                name=request.form.get('new_advertiser_name', '').strip(),
+                telegram=request.form.get('new_advertiser_telegram', '')
+            )
+            if new_advertiser.name:  # Если имя указано
+                db.session.add(new_advertiser)
+                db.session.flush()  # Получаем ID без коммита
+                advertiser_id = new_advertiser.id
+            else:
+                advertiser_id = None
+        else:
+            advertiser_id = form.advertiser.data
+
+        # Создаем заказ
         o = Order(
             date=form.date.data,
-            blogger_id=form.blogger.data,
-            advertiser_id=form.advertiser.data,
+            blogger_id=blogger_id,
+            advertiser_id=advertiser_id,
             product=form.product.data,
             cost=form.cost.data or 0,
             blogger_fee=form.blogger_fee.data or 0,
@@ -271,6 +304,7 @@ def add_order():
         db.session.commit()
         flash('Сделка добавлена', 'success')
         return redirect(url_for('orders'))
+    
     return render_template('order_form.html', form=form)
 
 @app.route('/order/<int:id>/edit', methods=['GET','POST'])

@@ -1,1 +1,89 @@
-{% extends 'blogger_form.html' %}
+{% extends 'base.html' %}
+{% block content %}
+<h2>Добавить сделку</h2>
+<form method="post">
+    {{ form.hidden_tag() }}
+    
+    <!-- Блогер -->
+    <div class="mb-3">
+        {{ form.blogger.label(class_='form-label') }}
+        {{ form.blogger(class_='form-control', onchange='toggleBloggerFields()') }}
+    </div>
+    
+    <!-- Поля для нового блогера -->
+    <div id="newBloggerFields" style="display: none;" class="border p-3 mb-3 rounded">
+        <h6>Новый блогер</h6>
+        <div class="mb-2">
+            <label class="form-label">Имя блогера</label>
+            <input type="text" name="new_blogger_name" class="form-control" placeholder="Введите имя блогера">
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Платформа</label>
+            <select name="new_blogger_platform" class="form-control">
+                <option value="tiktok">TikTok</option>
+                <option value="tg">Telegram</option>
+                <option value="insta">Instagram</option>
+                <option value="youtube">YouTube</option>
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Ссылка</label>
+            <input type="text" name="new_blogger_link" class="form-control" placeholder="Необязательно">
+        </div>
+    </div>
+
+    <!-- Рекламодатель -->
+    <div class="mb-3">
+        {{ form.advertiser.label(class_='form-label') }}
+        {{ form.advertiser(class_='form-control', onchange='toggleAdvertiserFields()') }}
+    </div>
+    
+    <!-- Поля для нового рекламодателя -->
+    <div id="newAdvertiserFields" style="display: none;" class="border p-3 mb-3 rounded">
+        <h6>Новый рекламодатель</h6>
+        <div class="mb-2">
+            <label class="form-label">Название компании</label>
+            <input type="text" name="new_advertiser_name" class="form-control" placeholder="Введите название">
+        </div>
+        <div class="mb-2">
+            <label class="form-label">Telegram</label>
+            <input type="text" name="new_advertiser_telegram" class="form-control" placeholder="Необязательно">
+        </div>
+    </div>
+
+    <!-- Остальные поля -->
+    {% for field in form %}
+        {% if field.name not in ['blogger', 'advertiser', 'csrf_token'] %}
+            <div class="mb-3">
+                {{ field.label(class_='form-label') }}
+                {{ field(class_='form-control') }}
+                {% if field.errors %}
+                    <div class="text-danger">{{ field.errors[0] }}</div>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endfor %}
+    
+    <button class="btn btn-primary">Сохранить сделку</button>
+</form>
+
+<script>
+function toggleBloggerFields() {
+    const bloggerSelect = document.querySelector('#blogger');
+    const newBloggerFields = document.getElementById('newBloggerFields');
+    newBloggerFields.style.display = bloggerSelect.value === '0' ? 'block' : 'none';
+}
+
+function toggleAdvertiserFields() {
+    const advertiserSelect = document.querySelector('#advertiser');
+    const newAdvertiserFields = document.getElementById('newAdvertiserFields');
+    newAdvertiserFields.style.display = advertiserSelect.value === '0' ? 'block' : 'none';
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    toggleBloggerFields();
+    toggleAdvertiserFields();
+});
+</script>
+{% endblock %}
