@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Проект: {{ project.name }}</h2>
+<p>Месяц: {{ project.month }} | Статус: {{ project.status }}</p>
+<p>{{ project.description }}</p>
+<hr>
+<h4>Сделки в проекте <a href="/order/add" class="btn btn-sm btn-success">Добавить сделку</a></h4>
+<table class="table table-sm">
+  <thead><tr><th>Дата</th><th>Блогер</th><th>Рекламодатель</th><th>Продукт</th><th>Стоимость</th><th>Прибыль</th><th>Статус</th></tr></thead>
+  <tbody>
+    {% for o in orders %}
+      <tr>
+        <td>{{ o.date }}</td>
+        <td>{{ o.blogger.name if o.blogger }}</td>
+        <td>{{ o.advertiser.name if o.advertiser }}</td>
+        <td>{{ o.product }}</td>
+        <td>{{ o.cost }}</td>
+        <td>{{ (o.cost - o.blogger_fee) }}</td>
+        <td>{{ o.status }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

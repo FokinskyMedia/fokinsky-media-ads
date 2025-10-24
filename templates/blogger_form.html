@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Форма</h2>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    {% for field in form %}
+      <div class="mb-3">
+        {{ field.label(class_='form-label') }}
+        {{ field(class_='form-control') }}
+        {% if field.errors %}
+          <div class="text-danger">{{ field.errors[0] }}</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+    <button class="btn btn-primary">Сохранить</button>
+  </form>
+{% endblock %}

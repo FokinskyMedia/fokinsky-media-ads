@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Блогеры <a href="/blogger/add" class="btn btn-sm btn-success">Добавить</a></h2>
+<table class="table table-striped table-sm">
+  <thead><tr><th>Имя</th><th>Платформа</th><th>Ссылка</th><th>Действия</th></tr></thead>
+  <tbody>
+    {% for b in bloggers %}
+      <tr>
+        <td>{{ b.name }}</td>
+        <td>{{ b.platform }}</td>
+        <td>{% if b.link %}<a href="{{ b.link }}" target="_blank">ссылка</a>{% endif %}</td>
+        <td>
+          <a href="/blogger/{{ b.id }}/edit" class="btn btn-sm btn-primary">Ред.</a>
+          <form action="/blogger/{{ b.id }}/delete" method="post" style="display:inline;">
+            <button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Проекты <a href="/project/add" class="btn btn-sm btn-success">Добавить</a></h2>
+<table class="table table-sm">
+  <thead><tr><th>Название</th><th>Месяц</th><th>Статус</th><th>Действия</th></tr></thead>
+  <tbody>
+    {% for p in projects %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td>{{ p.month }}</td>
+        <td>{{ p.status }}</td>
+        <td>
+          <a href="/project/{{ p.id }}/view" class="btn btn-sm btn-primary">Открыть</a>
+          <a href="/project/{{ p.id }}/edit" class="btn btn-sm btn-secondary">Ред.</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

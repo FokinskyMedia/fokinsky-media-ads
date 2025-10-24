@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Сделки <a href="/order/add" class="btn btn-sm btn-success">Добавить</a></h2>
+<table class="table table-sm table-striped">
+  <thead><tr><th>Дата</th><th>Блогер</th><th>Рекл.</th><th>Продукт</th><th>Цена</th><th>Блогеру</th><th>Прибыль</th><th>Статус</th><th>Действия</th></tr></thead>
+  <tbody>
+    {% for o in orders %}
+      <tr>
+        <td>{{ o.date }}</td>
+        <td>{{ o.blogger.name if o.blogger }}</td>
+        <td>{{ o.advertiser.name if o.advertiser }}</td>
+        <td>{{ o.product }}</td>
+        <td>{{ o.cost }}</td>
+        <td>{{ o.blogger_fee }}</td>
+        <td>{{ (o.cost - o.blogger_fee) }}</td>
+        <td>{{ o.status }}</td>
+        <td>
+          <a href="/order/{{ o.id }}/edit" class="btn btn-sm btn-primary">Ред.</a>
+          <form action="/order/{{ o.id }}/delete" method="post" style="display:inline;"><button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
