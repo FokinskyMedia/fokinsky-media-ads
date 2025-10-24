@@ -6,6 +6,10 @@ from wtforms.validators import DataRequired, Optional
 from datetime import date, datetime
 import os
 
+def allowed_file(filename):
+    allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 # Создаем экземпляры
 app = Flask(__name__)
 db = SQLAlchemy()
@@ -14,9 +18,11 @@ db = SQLAlchemy()
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key-here-change-this'
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 # Инициализируем базу данных
 db.init_app(app)
+
 
 # МОДЕЛИ
 class Blogger(db.Model):
@@ -54,6 +60,16 @@ class Order(db.Model):
     blogger_fee = db.Column(db.Float, default=0)
     status = db.Column(db.String(50), default='planned')
     link = db.Column(db.String(300))
+
+class Document(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    filename = db.Column(db.String(300))
+    file_type = db.Column(db.String(50))  # contract, act, invoice, etc.
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'))
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
 
 # ФОРМЫ
 class BloggerForm(FlaskForm):
@@ -338,6 +354,70 @@ def delete_order(id):
     db.session.commit()
     flash('Удалено', 'info')
     return redirect(url_for('orders'))
+
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
+
+@app.route('/documents')
+def documents():
+    items = Document.query.order_by(Document.created_at.desc()).all()
+    return render_template('documents.html', documents=items)
+
+@app.route('/document/upload', methods=['GET', 'POST'])
+def upload_document():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            flash('Файл не выбран', 'danger')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('Файл не выбран', 'danger')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            doc = Document(
+                name=request.form.get('name', filename),
+                filename=filename,
+                file_type=request.form.get('file_type', 'other'),
+                project_id=request.form.get('project_id') or None,
+                order_id=request.form.get('order_id') or None,
+                description=request.form.get('description', '')
+            )
+            db.session.add(doc)
+            db.session.commit()
+            flash('Документ загружен', 'success')
+            return redirect(url_for('documents'))
+        else:
+            flash('Недопустимый тип файла', 'danger')
+    
+    projects = Project.query.all()
+    orders = Order.query.all()
+    return render_template('upload_document.html', projects=projects, orders=orders)
+
+@app.route('/document/<int:id>/delete', methods=['POST'])
+def delete_document(id):
+    doc = Document.query.get_or_404(id)
+    
+    if doc.filename:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], doc.filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    
+    db.session.delete(doc)
+    db.session.commit()
+    flash('Документ удален', 'info')
+    return redirect(url_for('documents'))
+
+@app.route('/document/<int:id>/download')
+def download_document(id):
+    doc = Document.query.get_or_404(id)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], doc.filename)
+
 port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
     with app.app_context():

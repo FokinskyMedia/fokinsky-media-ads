@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Загрузить документ</h2>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label class="form-label">Название документа</label>
+    <input type="text" name="name" class="form-control" required>
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Тип документа</label>
+    <select name="file_type" class="form-control">
+      <option value="contract">Договор</option>
+      <option value="act">Акт</option>
+      <option value="invoice">Счет</option>
+      <option value="proposal">Коммерческое предложение</option>
+      <option value="other">Другое</option>
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Файл</label>
+    <input type="file" name="file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+    <div class="form-text">Поддерживаются: PDF, Word, JPG, PNG</div>
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Проект (необязательно)</label>
+    <select name="project_id" class="form-control">
+      <option value="">-- Не выбран --</option>
+      {% for project in projects %}
+        <option value="{{ project.id }}">{{ project.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Описание</label>
+    <textarea name="description" class="form-control" rows="3"></textarea>
+  </div>
+  
+  <button type="submit" class="btn btn-primary">Загрузить</button>
+  <a href="/documents" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
