@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Создать проект</h2>
+<h2>Редактировать проект</h2>
 <form method="post">
   {{ form.hidden_tag() }}
   
@@ -12,31 +12,18 @@
     {% endif %}
   </div>
 
-  <!-- ВЫБОР МЕСЯЦА ТОЛЬКО ЕСЛИ НЕ ПЕРЕДАН ИЗ URL -->
-  {% if show_month_select %}
+  <!-- ВЫБОР МЕСЯЦА ПРИ РЕДАКТИРОВАНИИ -->
   <div class="mb-3">
     <label class="form-label">Месяц</label>
     <select name="month_id" class="form-control" required>
       <option value="">-- Выберите месяц --</option>
       {% for month in months %}
-        <option value="{{ month.id }}" {% if month.id == preselected_month_id|int %}selected{% endif %}>
+        <option value="{{ month.id }}" {% if month.id == project.month_id %}selected{% endif %}>
           {{ month.name }}
         </option>
       {% endfor %}
     </select>
   </div>
-  {% else %}
-    <!-- Скрытое поле с month_id -->
-    <input type="hidden" name="month_id" value="{{ preselected_month_id }}">
-    <div class="alert alert-info">
-      Проект будет создан в месяце: 
-      <strong>
-        {% for month in months %}
-          {% if month.id == preselected_month_id|int %}{{ month.name }}{% endif %}
-        {% endfor %}
-      </strong>
-    </div>
-  {% endif %}
   
   <div class="mb-3">
     {{ form.description.label(class_='form-label') }}
@@ -48,11 +35,7 @@
     {{ form.status(class_='form-control') }}
   </div>
   
-  <button class="btn btn-primary">Создать проект</button>
-  {% if preselected_month_id %}
-    <a href="/month/{{ preselected_month_id }}" class="btn btn-secondary">Отмена</a>
-  {% else %}
-    <a href="/projects" class="btn btn-secondary">Отмена</a>
-  {% endif %}
+  <button class="btn btn-primary">Сохранить</button>
+  <a href="/project/{{ project.id }}/view" class="btn btn-secondary">Отмена</a>
 </form>
 {% endblock %}

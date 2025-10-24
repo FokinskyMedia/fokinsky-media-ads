@@ -1,6 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Блогеры <a href="/blogger/add" class="btn btn-sm btn-success">Добавить</a></h2>
+<h2>Блогеры 
+    <a href="/blogger/add" class="btn btn-sm btn-success">Добавить</a>
+</h2>
+
+<!-- ПОИСК БЛОГЕРОВ -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="/bloggers" class="row g-2">
+            <div class="col-md-8">
+                <input type="text" name="search" class="form-control" placeholder="Поиск по имени блогера..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <select name="platform" class="form-control">
+                    <option value="">Все платформы</option>
+                    <option value="tiktok" {% if platform_filter == 'tiktok' %}selected{% endif %}>TikTok</option>
+                    <option value="tg" {% if platform_filter == 'tg' %}selected{% endif %}>Telegram</option>
+                    <option value="insta" {% if platform_filter == 'insta' %}selected{% endif %}>Instagram</option>
+                    <option value="youtube" {% if platform_filter == 'youtube' %}selected{% endif %}>YouTube</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Найти</button>
+            </div>
+        </form>
+        {% if search_query or platform_filter %}
+            <div class="mt-2">
+                <small class="text-muted">
+                    Найдено: {{ bloggers|length }} блогеров
+                    {% if search_query %} по запросу "{{ search_query }}"{% endif %}
+                    {% if platform_filter %} на платформе {{ platform_filter }}{% endif %}
+                </small>
+                <a href="/bloggers" class="btn btn-sm btn-outline-secondary ms-2">Сбросить</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
 <table class="table table-striped table-sm">
   <thead>
     <tr>

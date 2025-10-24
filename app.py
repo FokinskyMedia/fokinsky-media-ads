@@ -42,10 +42,16 @@ class Advertiser(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     orders = db.relationship('Order', backref='advertiser', lazy=True)
 
+class Month(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    projects = db.relationship('Project', backref='month', lazy=True)  
+
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    month = db.Column(db.String(50))
+    month_id = db.Column(db.Integer, db.ForeignKey('month.id')) 
     description = db.Column(db.Text)
     status = db.Column(db.String(50), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -56,7 +62,7 @@ class Order(db.Model):
     date = db.Column(db.Date)
     blogger_id = db.Column(db.Integer, db.ForeignKey('blogger.id'))
     advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'))
-    project_id = db.Column(db.Integer, db.ForeignKey('project.id'))
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'))  
     product = db.Column(db.String(300))
     cost = db.Column(db.Float, default=0)
     blogger_fee = db.Column(db.Float, default=0)
@@ -67,9 +73,9 @@ class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     filename = db.Column(db.String(300))
-    file_type = db.Column(db.String(50))  # contract, act, invoice, etc.
-    project_id = db.Column(db.Integer, db.ForeignKey('project.id'))
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
+    file_type = db.Column(db.String(50))
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'))
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id', ondelete='CASCADE'))      
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
 
@@ -92,7 +98,6 @@ class AdvertiserForm(FlaskForm):
 
 class ProjectForm(FlaskForm):
     name = StringField('Название', validators=[DataRequired()])
-    month = StringField('Месяц', validators=[Optional()])
     description = TextAreaField('Описание', validators=[Optional()])
     status = SelectField('Статус', choices=[
         ('active','Активный'),
@@ -140,15 +145,39 @@ def upcoming_exits(day=None):
 # МАРШРУТЫ
 @app.route('/')
 def index():
-    projects = Project.query.order_by(Project.id.desc()).all()
+    months = Month.query.order_by(Month.created_at.desc()).all()
     stats = calculate_stats()
     upcoming = upcoming_exits()
-    return render_template('index.html', projects=projects, stats=stats, upcoming=upcoming)
+    total_projects = Project.query.count()
+    total_months = len(months)
+    
+    return render_template('index.html', 
+                         months=months,
+                         stats=stats, 
+                         upcoming=upcoming,
+                         total_projects=total_projects,
+                         total_months=total_months)
+
+@app.route('/month/<int:id>')
+def view_month(id):
+    month = Month.query.get_or_404(id)
+    return render_template('month_view.html', month=month)
 
 @app.route('/bloggers')
 def bloggers():
-    items = Blogger.query.order_by(Blogger.name).all()
-    return render_template('bloggers.html', bloggers=items)
+    search_query = request.args.get('search', '')
+    platform_filter = request.args.get('platform', '')
+    
+    query = Blogger.query
+    
+    if search_query:
+        query = query.filter(Blogger.name.ilike(f'%{search_query}%'))
+    
+    if platform_filter:
+        query = query.filter(Blogger.platform == platform_filter)
+    
+    items = query.order_by(Blogger.name).all()
+    return render_template('bloggers.html', bloggers=items, search_query=search_query, platform_filter=platform_filter)
 
 @app.route('/blogger/add', methods=['GET','POST'])
 def add_blogger():
@@ -184,8 +213,15 @@ def delete_blogger(id):
 
 @app.route('/advertisers')
 def advertisers():
-    items = Advertiser.query.order_by(Advertiser.name).all()
-    return render_template('advertisers.html', items=items)
+    search_query = request.args.get('search', '')
+    
+    query = Advertiser.query
+    
+    if search_query:
+        query = query.filter(Advertiser.name.ilike(f'%{search_query}%'))
+    
+    items = query.order_by(Advertiser.name).all()
+    return render_template('advertisers.html', items=items, search_query=search_query)
 
 @app.route('/advertiser/add', methods=['GET','POST'])
 def add_advertiser():
@@ -218,6 +254,26 @@ def delete_advertiser(id):
     flash('Удалено', 'info')
     return redirect(url_for('advertisers'))
 
+@app.route('/months')
+def months():
+    items = Month.query.order_by(Month.created_at.desc()).all()
+    return render_template('months.html', months=items)
+
+@app.route('/month/add', methods=['GET','POST'])
+def add_month():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if name:
+            # ✅ ПРОСТО СОЗДАЕМ МЕСЯЦ БЕЗ АКТИВАЦИИ
+            m = Month(name=name)
+            db.session.add(m)
+            db.session.commit()
+            flash('Месяц создан', 'success')
+            return redirect(url_for('months'))
+        else:
+            flash('Введите название месяца', 'danger')
+    return render_template('month_form.html')
+
 @app.route('/projects')
 def projects():
     items = Project.query.order_by(Project.id.desc()).all()
@@ -226,27 +282,62 @@ def projects():
 @app.route('/project/add', methods=['GET','POST'])
 def add_project():
     form = ProjectForm()
-    if form.validate_on_submit():
-        p = Project(name=form.name.data.strip(), month=form.month.data, description=form.description.data, status=form.status.data)
+    months = Month.query.order_by(Month.created_at.desc()).all()
+    
+    # Получаем month_id из параметра URL (если создаем из месяца)
+    month_id_from_url = request.args.get('month_id')
+    
+    if request.method == 'POST':
+        # Если month_id передан в форме - используем его, иначе из URL
+        month_id = request.form.get('month_id') or month_id_from_url
+        
+        if not month_id:
+            flash('Выберите месяц', 'danger')
+            return render_template('project_form.html', form=form, months=months, show_month_select=True)
+        
+        p = Project(
+            name=form.name.data.strip(), 
+            month_id=month_id,
+            description=form.description.data, 
+            status=form.status.data
+        )
         db.session.add(p)
         db.session.commit()
         flash('Проект добавлен', 'success')
+        
+        # Перенаправляем в месяц, если создавали из месяца
+        if month_id_from_url:
+            return redirect(url_for('view_month', id=month_id_from_url))
         return redirect(url_for('projects'))
-    return render_template('project_form.html', form=form)
+    
+    # Определяем показывать ли выбор месяца
+    show_month_select = not bool(month_id_from_url)
+    
+    return render_template('project_form.html', form=form, months=months, 
+                         show_month_select=show_month_select, 
+                         preselected_month_id=month_id_from_url)
 
 @app.route('/project/<int:id>/edit', methods=['GET','POST'])
 def edit_project(id):
     p = Project.query.get_or_404(id)
     form = ProjectForm(obj=p)
-    if form.validate_on_submit():
+    months = Month.query.order_by(Month.created_at.desc()).all()
+    
+    if request.method == 'POST':
+        month_id = request.form.get('month_id')
+        if not month_id:
+            flash('Выберите месяц', 'danger')
+            return render_template('project_edit.html', form=form, project=p, months=months)
+        
         p.name = form.name.data.strip()
-        p.month = form.month.data
+        p.month_id = month_id  # ✅ ОБНОВЛЯЕМ МЕСЯЦ
         p.description = form.description.data
         p.status = form.status.data
         db.session.commit()
         flash('Сохранено', 'success')
         return redirect(url_for('projects'))
-    return render_template('project_form.html', form=form)
+    
+    return render_template('project_edit.html', form=form, project=p, months=months)
 
 @app.route('/project/<int:id>/view')
 def view_project(id):
@@ -257,9 +348,10 @@ def view_project(id):
 @app.route('/project/<int:id>/delete', methods=['POST'])
 def delete_project(id):
     p = Project.query.get_or_404(id)
+    
     db.session.delete(p)
     db.session.commit()
-    flash('Удалено', 'info')
+    flash('Проект и связанные сделки удалены', 'info')
     return redirect(url_for('projects'))
 
 @app.route('/orders')

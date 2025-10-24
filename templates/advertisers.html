@@ -1,8 +1,37 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Рекламодатели <a href="/advertiser/add" class="btn btn-sm btn-success">Добавить</a></h2>
+<h2>Рекламодатели 
+    <a href="/advertiser/add" class="btn btn-sm btn-success">Добавить</a>
+</h2>
+
+<!-- ПОИСК РЕКЛАМОДАТЕЛЕЙ -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="/advertisers" class="row g-2">
+            <div class="col-md-10">
+                <input type="text" name="search" class="form-control" placeholder="Поиск по названию компании..." value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Найти</button>
+            </div>
+        </form>
+        {% if search_query %}
+            <div class="mt-2">
+                <small class="text-muted">Найдено: {{ items|length }} рекламодателей по запросу "{{ search_query }}"</small>
+                <a href="/advertisers" class="btn btn-sm btn-outline-secondary ms-2">Сбросить</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
 <table class="table table-striped table-sm">
-  <thead><tr><th>Название</th><th>Telegram</th><th>Действия</th></tr></thead>
+  <thead>
+    <tr>
+      <th>Название</th>
+      <th>Telegram</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
   <tbody>
     {% for a in items %}
       <tr>
@@ -10,7 +39,9 @@
         <td>{{ a.telegram }}</td>
         <td>
           <a href="/advertiser/{{ a.id }}/edit" class="btn btn-sm btn-primary">Ред.</a>
-          <form action="/advertiser/{{ a.id }}/delete" method="post" style="display:inline;"><button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button></form>
+          <form action="/advertiser/{{ a.id }}/delete" method="post" style="display:inline;">
+            <button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button>
+          </form>
         </td>
       </tr>
     {% endfor %}

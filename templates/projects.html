@@ -2,17 +2,23 @@
 {% block content %}
 <h2>Проекты <a href="/project/add" class="btn btn-sm btn-success">Добавить</a></h2>
 <table class="table table-sm">
-  <thead><tr><th>Название</th><th>Месяц</th><th>Статус</th><th>Действия</th></tr></thead>
+  <thead>
+    <tr>
+      <th>Название</th>
+      <th>Месяц</th>
+      <th>Статус</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
   <tbody>
     {% for p in projects %}
       <tr>
         <td>{{ p.name }}</td>
-        <td>{{ p.month }}</td>
+        <td>{{ p.month.name if p.month else '---' }}</td>
         <td>{{ p.status }}</td>
         <td>
           <a href="/project/{{ p.id }}/view" class="btn btn-sm btn-primary">Открыть</a>
           <a href="/project/{{ p.id }}/edit" class="btn btn-sm btn-secondary">Ред.</a>
-          <!-- ДОБАВИЛ КНОПКУ УДАЛЕНИЯ -->
           <form action="/project/{{ p.id }}/delete" method="post" style="display:inline;">
             <button class="btn btn-sm btn-danger" onclick="return confirm('Удалить проект {{ p.name }}?')">X</button>
           </form>

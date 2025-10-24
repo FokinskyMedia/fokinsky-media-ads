@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Создать новый месяц</h2>
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label">Название месяца</label>
+        <input type="text" name="name" class="form-control" placeholder="Например: Ноябрь 2024" required>
+        <div class="form-text">Этот месяц станет активным для новых проектов</div>
+    </div>
+    <button class="btn btn-primary">Создать месяц</button>
+    <a href="/months" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
