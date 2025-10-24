@@ -1,17 +1,42 @@
 {% extends 'base.html' %}
 {% block content %}
-  <h2>Форма</h2>
+  <h2>Форма блогера</h2>
   <form method="post">
     {{ form.hidden_tag() }}
-    {% for field in form %}
-      <div class="mb-3">
-        {{ field.label(class_='form-label') }}
-        {{ field(class_='form-control') }}
-        {% if field.errors %}
-          <div class="text-danger">{{ field.errors[0] }}</div>
-        {% endif %}
-      </div>
-    {% endfor %}
+    
+    <!-- Основные поля -->
+    <div class="mb-3">
+      {{ form.name.label(class_='form-label') }}
+      {{ form.name(class_='form-control') }}
+      {% if form.name.errors %}
+        <div class="text-danger">{{ form.name.errors[0] }}</div>
+      {% endif %}
+    </div>
+    
+    <div class="mb-3">
+      {{ form.platform.label(class_='form-label') }}
+      {{ form.platform(class_='form-control') }}
+    </div>
+    
+    <div class="mb-3">
+      {{ form.link.label(class_='form-label') }}
+      {{ form.link(class_='form-control', placeholder='Ссылка на контент блогера') }}
+    </div>
+    
+    <!-- Новые поля -->
+    <div class="mb-3">
+      {{ form.contact_link.label(class_='form-label') }}
+      {{ form.contact_link(class_='form-control', placeholder='@username или ссылка на ТГ') }}
+      <div class="form-text">Необязательно</div>
+    </div>
+    
+    <div class="mb-3">
+      {{ form.rkn_info.label(class_='form-label') }}
+      {{ form.rkn_info(class_='form-control', placeholder='Ссылка на госуслуги РКН или номер заявления') }}
+      <div class="form-text">Необязательно</div>
+    </div>
+    
     <button class="btn btn-primary">Сохранить</button>
+    <a href="/bloggers" class="btn btn-secondary">Отмена</a>
   </form>
 {% endblock %}

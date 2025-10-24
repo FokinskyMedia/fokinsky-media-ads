@@ -2,13 +2,40 @@
 {% block content %}
 <h2>Блогеры <a href="/blogger/add" class="btn btn-sm btn-success">Добавить</a></h2>
 <table class="table table-striped table-sm">
-  <thead><tr><th>Имя</th><th>Платформа</th><th>Ссылка</th><th>Действия</th></tr></thead>
+  <thead>
+    <tr>
+      <th>Имя</th>
+      <th>Платформа</th>
+      <th>Контент</th>
+      <th>Контакты</th>
+      <th>РКН</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
   <tbody>
     {% for b in bloggers %}
       <tr>
         <td>{{ b.name }}</td>
         <td>{{ b.platform }}</td>
-        <td>{% if b.link %}<a href="{{ b.link }}" target="_blank">ссылка</a>{% endif %}</td>
+        <td>
+          {% if b.link %}
+            <a href="{{ b.link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-external-link-alt"></i>
+            </a>
+          {% endif %}
+        </td>
+        <td>
+          {% if b.contact_link %}
+            <a href="{{ b.contact_link }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <i class="fab fa-telegram"></i>
+            </a>
+          {% endif %}
+        </td>
+        <td>
+          {% if b.rkn_info %}
+            <span class="badge bg-info" title="{{ b.rkn_info }}">РКН</span>
+          {% endif %}
+        </td>
         <td>
           <a href="/blogger/{{ b.id }}/edit" class="btn btn-sm btn-primary">Ред.</a>
           <form action="/blogger/{{ b.id }}/delete" method="post" style="display:inline;">

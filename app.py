@@ -30,6 +30,8 @@ class Blogger(db.Model):
     name = db.Column(db.String(200), nullable=False)
     platform = db.Column(db.String(50))
     link = db.Column(db.String(300))
+    contact_link = db.Column(db.String(300))  # Ссылка на ТГ блогера
+    rkn_info = db.Column(db.String(300))     # РКН (ссылка или номер заявления)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     orders = db.relationship('Order', backref='blogger', lazy=True)
 
@@ -81,6 +83,8 @@ class BloggerForm(FlaskForm):
         ('youtube','YouTube')
     ])
     link = StringField('Ссылка', validators=[Optional()])
+    contact_link = StringField('Связь с блогером (ТГ)', validators=[Optional()])
+    rkn_info = StringField('РКН (ссылка/номер)', validators=[Optional()])
 
 class AdvertiserForm(FlaskForm):
     name = StringField('Название', validators=[DataRequired()])
