@@ -1,5 +1,5 @@
-Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
-Flask-WTF==1.0.1
-WTForms==3.0.1
-Werkzeug==2.3.7
+Flask==2.1.0
+Flask-SQLAlchemy==2.5.1
+Flask-WTF==0.15.1
+WTForms==2.3.3
+Werkzeug==2.1.2
