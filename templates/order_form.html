@@ -14,7 +14,7 @@
     <div id="newBloggerFields" style="display: none;" class="border p-3 mb-3 rounded">
         <h6>Новый блогер</h6>
         <div class="mb-2">
-            <label class="form-label">Имя блогера</label>
+            <label class="form-label">Имя блогера *</label>
             <input type="text" name="new_blogger_name" class="form-control" placeholder="Введите имя блогера">
         </div>
         <div class="mb-2">
@@ -27,18 +27,30 @@
             </select>
         </div>
         <div class="mb-2">
-            <label class="form-label">Ссылка</label>
+            <label class="form-label">Ссылка на контент</label>
             <input type="text" name="new_blogger_link" class="form-control" placeholder="Необязательно">
+        </div>
+        <!-- ✅ ДОБАВЛЕНО: Поля для контакта и РКН -->
+        <div class="mb-2">
+            <label class="form-label">Контакт (Telegram)</label>
+            <input type="text" name="new_blogger_contact" class="form-control" placeholder="@username или ссылка на ТГ">
+            <div class="form-text">Например: @username или https://t.me/username</div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label">РКН информация</label>
+            <input type="text" name="new_blogger_rkn" class="form-control" placeholder="Ссылка или номер заявления">
+            <div class="form-text">Ссылка на госуслуги РКН или номер заявления</div>
         </div>
     </div>
 
-    <!-- ✅ ИСПРАВЛЕНО: Показываем рекламодателя только если НЕТ проекта -->
+    <!-- ✅ ИСПРАВЛЕНО: Разные блоки для проекта и обычной сделки -->
     {% if not project %}
+    <!-- Для обычной сделки -->
     <div class="mb-3">
         {{ form.advertiser.label(class_='form-label') }}
         {{ form.advertiser(class_='form-control', onchange='toggleAdvertiserFields()') }}
     </div>
-    
+
     <!-- Поля для нового рекламодателя -->
     <div id="newAdvertiserFields" style="display: none;" class="border p-3 mb-3 rounded">
         <h6>Новый рекламодатель</h6>
@@ -52,7 +64,8 @@
         </div>
     </div>
     {% else %}
-    <!-- ✅ ДОБАВЛЕНО: Показываем информацию о рекламодателе проекта -->
+    <!-- Для проекта - скрытое поле advertiser с значением -1 -->
+    {{ form.advertiser(class_='d-none') }}
     <div class="alert alert-info">
         <strong>Рекламодатель проекта:</strong> {{ project.advertiser.name if project.advertiser else 'Не указан' }}
     </div>
@@ -120,7 +133,7 @@
         {{ form.link(class_='form-control', placeholder='Ссылка на опубликованный пост') }}
     </div>
     
-    <button class="btn btn-primary">{% if request.path.startswith('/order/') and '/edit' in request.path %}Сохранить{% else %}Создать сделку{% endif %}</button>
+    <button type="submit" class="btn btn-primary" onclick="return validateForm()">{% if request.path.startswith('/order/') and '/edit' in request.path %}Сохранить{% else %}Создать сделку{% endif %}</button>
     <a href="/orders" class="btn btn-secondary">Отмена</a>
 </form>
 
@@ -140,10 +153,37 @@ function toggleAdvertiserFields() {
     }
 }
 
-// ✅ ИСПРАВЛЕНО: Убрана блокировка проекта, т.к. теперь поле скрыто
+// ✅ ИСПРАВЛЕНО: Упрощенная валидация - только блогер
+function validateForm() {
+    const bloggerSelect = document.querySelector('#blogger');
+    const bloggerValue = bloggerSelect.value;
+    
+    // Проверка блогера
+    if (!bloggerValue) {
+        alert('Выберите блогера или создайте нового');
+        return false;
+    }
+    
+    // Если выбран новый блогер - проверяем имя
+    if (bloggerValue === '0') {
+        const newBloggerName = document.querySelector('input[name="new_blogger_name"]');
+        if (!newBloggerName.value.trim()) {
+            alert('Введите имя нового блогера');
+            return false;
+        }
+    }
+    
+    console.log('Форма валидна, отправляем...');
+    console.log('Blogger:', bloggerValue);
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     toggleBloggerFields();
+    // ✅ ИСПРАВЛЕНО: Вызываем только если нет проекта
+    {% if not project %}
     toggleAdvertiserFields();
+    {% endif %}
 });
 </script>
 {% endblock %}

@@ -23,17 +23,23 @@
       {{ form.link(class_='form-control', placeholder='Ссылка на контент блогера') }}
     </div>
     
-    <!-- Новые поля -->
+    <!-- Контактные данные -->
     <div class="mb-3">
       {{ form.contact_link.label(class_='form-label') }}
-      {{ form.contact_link(class_='form-control', placeholder='@username или ссылка на ТГ') }}
-      <div class="form-text">Необязательно</div>
+      {{ form.contact_link(class_='form-control', placeholder='https://t.me/username или @username') }}
+      <div class="form-text">Полная ссылка или @username для Telegram</div>
+    </div>
+    
+    <div class="mb-3">
+      {{ form.telegram.label(class_='form-label') }}
+      {{ form.telegram(class_='form-control', placeholder='username') }}
+      <div class="form-text">Только username (без @) для быстрой ссылки</div>
     </div>
     
     <div class="mb-3">
       {{ form.rkn_info.label(class_='form-label') }}
-      {{ form.rkn_info(class_='form-control', placeholder='Ссылка на госуслуги РКН или номер заявления') }}
-      <div class="form-text">Необязательно</div>
+      {{ form.rkn_info(class_='form-control', placeholder='https://rkn.gov.ru/... или номер заявления') }}
+      <div class="form-text">Ссылка на РКН или номер заявления</div>
     </div>
     
     <button class="btn btn-primary">Сохранить</button>

@@ -24,21 +24,33 @@
         <td>{{ o.date.strftime('%d.%m.%Y') if o.date else '' }}</td>
         <td>{{ o.blogger.name if o.blogger else '---' }}</td>
         <td>
-          {% if o.blogger and o.blogger.telegram %}
-            <a href="https://t.me/{{ o.blogger.telegram }}" target="_blank" class="text-decoration-none">
-              @{{ o.blogger.telegram }}
-            </a>
-          {% else %}
-            <span class="text-muted">---</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if o.blogger and o.blogger.rkn %}
-            <span class="badge bg-warning">РКН</span>
-          {% else %}
-            <span class="text-muted">---</span>
-          {% endif %}
-        </td>
+  {% if o.blogger %}
+    <div class="d-flex flex-column">
+      {% if o.blogger.contact_link %}
+        <a href="{{ o.blogger.contact_link }}" target="_blank" class="text-decoration-none" title="Контакт блогера">
+          <i class="fab fa-telegram me-1"></i>Контакты
+        </a>
+      {% elif o.blogger.telegram %}
+        <a href="https://t.me/{{ o.blogger.telegram }}" target="_blank" class="text-decoration-none">
+          @{{ o.blogger.telegram }}
+        </a>
+      {% else %}
+        <span class="text-muted">---</span>
+      {% endif %}
+    </div>
+  {% else %}
+    <span class="text-muted">---</span>
+  {% endif %}
+</td>
+<td>
+  {% if o.blogger and o.blogger.rkn_info %}
+    <a href="{{ o.blogger.rkn_info }}" target="_blank" class="badge bg-warning" title="РКН информация">
+      РКН
+    </a>
+  {% else %}
+    <span class="text-muted">---</span>
+  {% endif %}
+</td>
         <td>{{ o.product }}</td>
         <td>{{ "%.0f"|format(o.cost) if o.cost else '0' }} ₽</td>
         <td>{{ "%.0f"|format(o.blogger_fee) if o.blogger_fee else '0' }} ₽</td>

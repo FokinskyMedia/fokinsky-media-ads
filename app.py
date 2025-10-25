@@ -44,6 +44,7 @@ class Blogger(db.Model):
     link = db.Column(db.String(300))
     contact_link = db.Column(db.String(300))  # Ссылка на ТГ блогера
     rkn_info = db.Column(db.String(300))     # РКН (ссылка или номер заявления)
+    telegram = db.Column(db.String(200))     # ✅ ДОБАВЛЕНО: Telegram username
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Advertiser(db.Model):
@@ -111,6 +112,7 @@ class BloggerForm(FlaskForm):
     link = StringField('Ссылка', validators=[Optional()])
     contact_link = StringField('Связь с блогером (ТГ)', validators=[Optional()])
     rkn_info = StringField('РКН (ссылка/номер)', validators=[Optional()])
+    telegram = StringField('Telegram (@username)', validators=[Optional()])  # ✅ ДОБАВИТЬ
 
 class AdvertiserForm(FlaskForm):
     name = StringField('Название', validators=[DataRequired()])
@@ -128,7 +130,7 @@ class OrderForm(FlaskForm):
     date = StringField('Дата выхода (дд.мм.гггг)', validators=[Optional()])
     blogger = SelectField('Блогер', coerce=int, validators=[Optional()])
     advertiser = SelectField('Рекламодатель', coerce=int, validators=[Optional()])
-    project = SelectField('Проект', coerce=lambda x: int(x) if x else None, validators=[Optional()])  # ✅ ИСПРАВЛЕНО
+    project = SelectField('Проект', coerce=str, validators=[Optional()])  # ✅ ИЗМЕНИТЕ НА coerce=str
     product = StringField('Продукт', validators=[Optional()])
     cost = DecimalField('Стоимость', validators=[Optional()])
     blogger_fee = DecimalField('Блогеру забирают', validators=[Optional()])
@@ -494,20 +496,16 @@ def add_order():
     month_id_from_url = request.args.get('month_id')
     project_id_from_url = request.args.get('project_id')
     
-    # ✅ ДОБАВЛЕНО: Получаем проект если передан project_id
     project = None
     if project_id_from_url:
         project = Project.query.get(project_id_from_url)
     
-    # Заполняем выборы из существующих
     form.blogger.choices = [(0, '-- Новый блогер --')] + [(b.id, b.name) for b in Blogger.query.order_by(Blogger.name).all()]
     
-    # ✅ ИСПРАВЛЕНО: Показываем выбор рекламодателя только если нет проекта
     if project:
-        # Если создаем сделку в проекте - скрываем выбор рекламодателя
-        form.advertiser.choices = []  # Пустой список
+        form.advertiser.choices = [(-1, 'Рекламодатель проекта')]
+        form.advertiser.data = -1
     else:
-        # Если создаем сделку без проекта - показываем выбор рекламодателя
         form.advertiser.choices = [(0, '-- Новый рекламодатель --')] + [(a.id, a.name) for a in Advertiser.query.order_by(Advertiser.name).all()]
     
     form.project.choices = [('', '-- Без проекта --')] + [(p.id, p.name) for p in Project.query.order_by(Project.name).all()]
@@ -515,7 +513,19 @@ def add_order():
     if project_id_from_url:
         form.project.data = project_id_from_url
     
+    # ✅ ДОБАВЛЕНО: Подробная отладочная информация для блогера
+    print("=" * 50)
+    print("DEBUG: Начало обработки формы")
+    print(f"DEBUG: Метод запроса: {request.method}")
+    print(f"DEBUG: Project: {project}")
+    print(f"DEBUG: Blogger choices count: {len(form.blogger.choices)}")
+    print(f"DEBUG: Blogger data: {form.blogger.data}")
+    
     if form.validate_on_submit():
+        print("DEBUG: ✅ Форма прошла валидацию!")
+        print(f"DEBUG: Blogger submitted: {form.blogger.data}")
+        print(f"DEBUG: Is new blogger: {form.blogger.data == 0}")
+        
         date_obj = None
         if form.date.data:
             try:
@@ -524,28 +534,32 @@ def add_order():
                 flash('Неверный формат даты. Используйте дд.мм.гггг (например: 15.01.2024)', 'danger')
                 return render_template('order_form.html', form=form, month_id=month_id_from_url, project_id=project_id_from_url, project=project)
 
-        # Обработка нового блогера
+        # Обработка блогера
         if form.blogger.data == 0:
+            print("DEBUG: Создаем нового блогера")
             new_blogger = Blogger(
                 name=request.form.get('new_blogger_name', '').strip(),
                 platform=request.form.get('new_blogger_platform', 'tg'),
-                link=request.form.get('new_blogger_link', '')
+                link=request.form.get('new_blogger_link', ''),
+                contact_link=request.form.get('new_blogger_contact', ''),
+                rkn_info=request.form.get('new_blogger_rkn', '')
             )
             if new_blogger.name:
                 db.session.add(new_blogger)
                 db.session.flush()
                 blogger_id = new_blogger.id
+                print(f"DEBUG: Новый блогер создан с ID: {blogger_id}")
             else:
                 blogger_id = None
+                print("DEBUG: Ошибка - имя нового блогера пустое")
         else:
             blogger_id = form.blogger.data
+            print(f"DEBUG: Используем существующего блогера с ID: {blogger_id}")
 
-        # ✅ ИСПРАВЛЕНО: Обработка рекламодателя
+        # Обработка рекламодателя
         if project:
-            # Если создаем сделку в проекте - берем рекламодателя из проекта
             advertiser_id = project.advertiser_id
         else:
-            # Если создаем сделку без проекта - обрабатываем выбор рекламодателя
             if form.advertiser.data == 0:
                 new_advertiser = Advertiser(
                     name=request.form.get('new_advertiser_name', '').strip(),
@@ -561,7 +575,12 @@ def add_order():
                 advertiser_id = form.advertiser.data
 
         # Обработка проекта
-        project_id = form.project.data if form.project.data else None
+        project_id = None
+        if form.project.data:
+            try:
+                project_id = int(form.project.data)
+            except (ValueError, TypeError):
+                project_id = None
 
         o = Order(
             date=date_obj,
@@ -584,8 +603,13 @@ def add_order():
         if month_id_from_url:
             return redirect(url_for('view_month', id=month_id_from_url))
         return redirect(url_for('orders'))
+    else:
+        print("DEBUG: ❌ Форма НЕ прошла валидацию!")
+        print(f"DEBUG: Ошибки формы: {form.errors}")
+        # ✅ ДОБАВЛЕНО: Проверка конкретно поля blogger
+        if 'blogger' in form.errors:
+            print(f"DEBUG: Ошибки в поле blogger: {form.blogger.errors}")
     
-    # ✅ ДОБАВЛЕНО: Передаем project в шаблон
     return render_template('order_form.html', form=form, month_id=month_id_from_url, project_id=project_id_from_url, project=project)
 
 @app.route('/order/<int:id>/edit', methods=['GET','POST'])
@@ -713,7 +737,7 @@ def update_order_notes(id):
     if data and 'notes' in data:
         o.notes = data['notes'].strip()
         db.session.commit()
-        return jsonify({'success': True})  # ← теперь работает
+        return jsonify({'success': True})
     
     return jsonify({'success': False}), 400
 
@@ -721,10 +745,51 @@ def update_order_notes(id):
 def health_check():
     return {'status': 'ok', 'timestamp': datetime.utcnow().isoformat()}
 
+# ✅ ДОБАВЛЕНО: Функция для обновления базы данных с новыми полями
+# ✅ ИСПРАВЛЕННАЯ Функция для обновления базы данных с новыми полями
+def update_database():
+    with app.app_context():
+        try:
+            # Создаем таблицы если их нет
+            db.create_all()
+            
+            # Проверяем есть ли поле telegram в таблице blogger
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('blogger')]
+            
+            if 'telegram' not in columns:
+                print("Добавляем поле telegram в таблицу blogger...")
+                
+                # Используем text() для создания SQL выражения
+                if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+                    # Для SQLite
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
+                    print("Поле telegram успешно добавлено в SQLite!")
+                else:
+                    # Для PostgreSQL
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
+                    print("Поле telegram успешно добавлено в PostgreSQL!")
+            
+            print("База данных актуальна!")
+            
+        except Exception as e:
+            print(f"Ошибка при обновлении базы данных: {e}")
+            print("Попробуем пересоздать таблицы...")
+            
+            # Если не получается добавить поле, пересоздаем таблицы
+            try:
+                db.drop_all()
+                db.create_all()
+                print("Таблицы успешно пересозданы!")
+            except Exception as e2:
+                print(f"Ошибка при пересоздании таблиц: {e2}")
+
 port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        print("База данных создана!")
+    # ✅ ДОБАВЛЕНО: Вызываем обновление базы при запуске
+    update_database()
     
     app.run(host='0.0.0.0', port=port, debug=True)

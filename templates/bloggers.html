@@ -52,24 +52,36 @@
     {% for b in bloggers %}
       <tr>
         <td>{{ b.name }}</td>
-        <td>{{ b.platform }}</td>
+        <td>
+          <span class="badge bg-secondary">{{ b.platform }}</span>
+        </td>
         <td>
           {% if b.link %}
-            <a href="{{ b.link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+            <a href="{{ b.link }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Ссылка на контент">
               <i class="fas fa-external-link-alt"></i>
             </a>
+          {% else %}
+            <span class="text-muted">---</span>
           {% endif %}
         </td>
         <td>
           {% if b.contact_link %}
-            <a href="{{ b.contact_link }}" target="_blank" class="btn btn-sm btn-outline-success">
-              <i class="fab fa-telegram"></i>
+            <a href="{{ b.contact_link }}" target="_blank" class="btn btn-sm btn-outline-success" title="Контакт блогера">
+              <i class="fab fa-telegram"></i> Контакт
             </a>
+          {% elif b.telegram %}
+            <a href="https://t.me/{{ b.telegram }}" target="_blank" class="text-decoration-none">
+              <small>@{{ b.telegram }}</small>
+            </a>
+          {% else %}
+            <span class="text-muted">---</span>
           {% endif %}
         </td>
         <td>
           {% if b.rkn_info %}
-            <span class="badge bg-info" title="{{ b.rkn_info }}">РКН</span>
+            <a href="{{ b.rkn_info }}" target="_blank" class="badge bg-warning" title="РКН информация">РКН</a>
+          {% else %}
+            <span class="text-muted">---</span>
           {% endif %}
         </td>
         <td>
