@@ -105,7 +105,7 @@ class ProjectForm(FlaskForm):
     ])
 
 class OrderForm(FlaskForm):
-    date = DateField('Дата выхода', validators=[Optional()], format='%Y-%m-%d')
+    date = StringField('Дата выхода (дд.мм.гггг)', validators=[Optional()])
     blogger = SelectField('Блогер', coerce=int, validators=[Optional()])
     advertiser = SelectField('Рекламодатель', coerce=int, validators=[Optional()])
     project = SelectField('Проект', coerce=int, validators=[Optional()])
@@ -369,16 +369,27 @@ def add_order():
     form.project.choices = [(p.id, p.name) for p in Project.query.order_by(Project.name).all()]
     
     if form.validate_on_submit():
+        # ПРЕОБРАЗОВАНИЕ ДАТЫ ИЗ ФОРМАТА дд.мм.гггг
+        date_obj = None
+        if form.date.data:
+            try:
+                # Преобразуем из дд.мм.гггг в datetime объект
+                date_obj = datetime.strptime(form.date.data, '%d.%m.%Y').date()
+            except ValueError:
+                flash('Неверный формат даты. Используйте дд.мм.гггг (например: 15.01.2024)', 'danger')
+                return render_template('order_form.html', form=form)
+
+        # Остальной код обработки...
         # Обработка нового блогера
-        if form.blogger.data == 0:  # Выбран "Новый блогер"
+        if form.blogger.data == 0:
             new_blogger = Blogger(
                 name=request.form.get('new_blogger_name', '').strip(),
                 platform=request.form.get('new_blogger_platform', 'tg'),
                 link=request.form.get('new_blogger_link', '')
             )
-            if new_blogger.name:  # Если имя указано
+            if new_blogger.name:
                 db.session.add(new_blogger)
-                db.session.flush()  # Получаем ID без коммита
+                db.session.flush()
                 blogger_id = new_blogger.id
             else:
                 blogger_id = None
@@ -386,14 +397,14 @@ def add_order():
             blogger_id = form.blogger.data
 
         # Обработка нового рекламодателя
-        if form.advertiser.data == 0:  # Выбран "Новый рекламодатель"
+        if form.advertiser.data == 0:
             new_advertiser = Advertiser(
                 name=request.form.get('new_advertiser_name', '').strip(),
                 telegram=request.form.get('new_advertiser_telegram', '')
             )
-            if new_advertiser.name:  # Если имя указано
+            if new_advertiser.name:
                 db.session.add(new_advertiser)
-                db.session.flush()  # Получаем ID без коммита
+                db.session.flush()
                 advertiser_id = new_advertiser.id
             else:
                 advertiser_id = None
@@ -402,7 +413,7 @@ def add_order():
 
         # Создаем заказ
         o = Order(
-            date=form.date.data,
+            date=date_obj,  # ИСПОЛЬЗУЕМ ПРЕОБРАЗОВАННУЮ ДАТУ
             blogger_id=blogger_id,
             advertiser_id=advertiser_id,
             product=form.product.data,
@@ -423,13 +434,24 @@ def add_order():
 def edit_order(id):
     o = Order.query.get_or_404(id)
     form = OrderForm(obj=o)
+    
     # Заполняем выборы
     form.blogger.choices = [(b.id, b.name) for b in Blogger.query.order_by(Blogger.name).all()]
     form.advertiser.choices = [(a.id, a.name) for a in Advertiser.query.order_by(Advertiser.name).all()]
     form.project.choices = [(p.id, p.name) for p in Project.query.order_by(Project.name).all()]
     
     if form.validate_on_submit():
-        o.date = form.date.data
+        # ПРЕОБРАЗОВАНИЕ ДАТЫ ИЗ ФОРМАТА дд.мм.гггг
+        date_obj = None
+        if form.date.data:
+            try:
+                # Преобразуем из дд.мм.гггг в datetime объект
+                date_obj = datetime.strptime(form.date.data, '%d.%m.%Y').date()
+            except ValueError:
+                flash('Неверный формат даты. Используйте дд.мм.гггг (например: 15.01.2024)', 'danger')
+                return render_template('order_form.html', form=form)
+        
+        o.date = date_obj  # ИСПОЛЬЗУЕМ ПРЕОБРАЗОВАННУЮ ДАТУ
         o.blogger_id = form.blogger.data
         o.advertiser_id = form.advertiser.data
         o.product = form.product.data
@@ -441,6 +463,17 @@ def edit_order(id):
         db.session.commit()
         flash('Сохранено', 'success')
         return redirect(url_for('orders'))
+    
+    # Преобразуем дату обратно в строку для отображения в форме
+    if o.date:
+        form.date.data = o.date.strftime('%d.%m.%Y')  # ИЗМЕНИЛИ НА %Y
+    
+    return render_template('order_form.html', form=form)
+    
+    # Преобразуем дату обратно в строку для отображения в форме
+    if o.date:
+        form.date.data = o.date.strftime('%d.%m.%Y') 
+    
     return render_template('order_form.html', form=form)
 
 @app.route('/order/<int:id>/delete', methods=['POST'])
