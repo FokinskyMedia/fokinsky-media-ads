@@ -1,25 +1,186 @@
 {% extends 'base.html' %}
 {% block content %}
 <h2>Сделки <a href="/order/add" class="btn btn-sm btn-success">Добавить</a></h2>
+
 <table class="table table-sm table-striped">
-  <thead><tr><th>Дата</th><th>Блогер</th><th>Рекл.</th><th>Продукт</th><th>Цена</th><th>Блогеру</th><th>Прибыль</th><th>Статус</th><th>Действия</th></tr></thead>
+  <thead>
+    <tr>
+      <th>Дата</th>
+      <th>Блогер</th>
+      <th>Контакты</th>
+      <th>РКН</th>
+      <th>Продукт</th>
+      <th>Цена</th>
+      <th>Блогеру</th>
+      <th>Прибыль</th>
+      <th>Статус</th>
+      <th>Заметки</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
   <tbody>
     {% for o in orders %}
-      <tr>
-        <td>{{ o.date }}</td>
-        <td>{{ o.blogger.name if o.blogger }}</td>
-        <td>{{ o.advertiser.name if o.advertiser }}</td>
-        <td>{{ o.product }}</td>
-        <td>{{ o.cost }}</td>
-        <td>{{ o.blogger_fee }}</td>
-        <td>{{ (o.cost - o.blogger_fee) }}</td>
-        <td>{{ o.status }}</td>
+      <tr id="order-{{ o.id }}">
+        <td>{{ o.date.strftime('%d.%m.%Y') if o.date else '' }}</td>
+        <td>{{ o.blogger.name if o.blogger else '---' }}</td>
         <td>
-          <a href="/order/{{ o.id }}/edit" class="btn btn-sm btn-primary">Ред.</a>
-          <form action="/order/{{ o.id }}/delete" method="post" style="display:inline;"><button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button></form>
+          {% if o.blogger and o.blogger.telegram %}
+            <a href="https://t.me/{{ o.blogger.telegram }}" target="_blank" class="text-decoration-none">
+              @{{ o.blogger.telegram }}
+            </a>
+          {% else %}
+            <span class="text-muted">---</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if o.blogger and o.blogger.rkn %}
+            <span class="badge bg-warning">РКН</span>
+          {% else %}
+            <span class="text-muted">---</span>
+          {% endif %}
+        </td>
+        <td>{{ o.product }}</td>
+        <td>{{ "%.0f"|format(o.cost) if o.cost else '0' }} ₽</td>
+        <td>{{ "%.0f"|format(o.blogger_fee) if o.blogger_fee else '0' }} ₽</td>
+        <td>{{ "%.0f"|format(o.cost - o.blogger_fee) if o.cost else '0' }} ₽</td>
+        <td>
+          {% if o.status == 'negotiation' %}
+            <span class="badge bg-warning">На согласовании</span>
+          {% elif o.status == 'agreed' %}
+            <span class="badge bg-primary">Согласован</span>
+          {% elif o.status == 'paid' %}
+            <span class="badge bg-success">Опл</span>
+          {% elif o.status == 'published' %}
+            <span class="badge bg-info">Выложил</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ o.status }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="notes-cell">
+            <div class="notes-view">
+              <small class="notes-text" 
+                     onclick="enableEdit({{ o.id }})"
+                     style="cursor: pointer;"
+                     title="Кликните для редактирования">
+                {% if o.notes %}
+                  {{ o.notes[:50] }}{% if o.notes|length > 50 %}...{% endif %}
+                {% else %}
+                  <span class="text-muted">+ добавить заметку</span>
+                {% endif %}
+              </small>
+            </div>
+            <div class="notes-edit" style="display: none;">
+              <textarea class="form-control form-control-sm notes-textarea" 
+                        id="notes-{{ o.id }}" 
+                        rows="2">{{ o.notes or '' }}</textarea>
+              <div class="mt-1">
+                <button class="btn btn-sm btn-success" onclick="saveNotes({{ o.id }})">✓</button>
+                <button class="btn btn-sm btn-secondary" onclick="cancelEdit({{ o.id }})">✕</button>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <a href="/order/{{ o.id }}/edit" class="btn btn-sm btn-primary" title="Полное редактирование">Ред.</a>
+          <form action="/order/{{ o.id }}/delete" method="post" style="display:inline;">
+            <button class="btn btn-sm btn-danger" onclick="return confirm('Удалить?');">X</button>
+          </form>
         </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<style>
+.notes-cell {
+  min-width: 200px;
+  max-width: 300px;
+}
+.notes-text {
+  word-break: break-word;
+}
+.notes-textarea {
+  font-size: 0.875em;
+  resize: vertical;
+}
+</style>
+
+<script>
+function enableEdit(orderId) {
+  document.querySelectorAll('.notes-edit').forEach(el => {
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.notes-view').forEach(el => {
+    el.style.display = 'block';
+  });
+  
+  const row = document.getElementById('order-' + orderId);
+  row.querySelector('.notes-view').style.display = 'none';
+  row.querySelector('.notes-edit').style.display = 'block';
+  row.querySelector('.notes-textarea').focus();
+}
+
+function cancelEdit(orderId) {
+  const row = document.getElementById('order-' + orderId);
+  row.querySelector('.notes-view').style.display = 'block';
+  row.querySelector('.notes-edit').style.display = 'none';
+}
+
+function saveNotes(orderId) {
+  const textarea = document.getElementById('notes-' + orderId);
+  const notes = textarea.value.trim();
+  
+  fetch('/order/' + orderId + '/notes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      notes: notes
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const notesView = document.querySelector('#order-' + orderId + ' .notes-text');
+      if (notes) {
+        notesView.textContent = notes.length > 50 ? notes.substring(0, 50) + '...' : notes;
+        notesView.classList.remove('text-muted');
+      } else {
+        notesView.innerHTML = '<span class="text-muted">+ добавить заметку</span>';
+      }
+      
+      cancelEdit(orderId);
+      showNotification('Заметка сохранена!', 'success');
+    } else {
+      showNotification('Ошибка сохранения', 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showNotification('Ошибка сохранения', 'error');
+  });
+}
+
+function showNotification(message, type) {
+  const alert = document.createElement('div');
+  alert.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+  alert.style.position = 'fixed';
+  alert.style.top = '20px';
+  alert.style.right = '20px';
+  alert.style.zIndex = '1000';
+  alert.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+  `;
+  document.body.appendChild(alert);
+  
+  setTimeout(() => {
+    if (alert.parentElement) {
+      alert.remove();
+    }
+  }, 3000);
+}
+</script>
 {% endblock %}

@@ -4,7 +4,7 @@
 
 <div class="row">
     <!-- Все месяцы -->
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Все месяцы</h5>
@@ -18,7 +18,10 @@
                                     <h6 class="mb-1">{{ month.name }}</h6>
                                     <span class="badge bg-primary rounded-pill">{{ month.projects|length }}</span>
                                 </div>
-                                <small class="text-muted">Проектов: {{ month.projects|length }}</small>
+                                <small class="text-muted">
+                                    Проектов: {{ month.projects|length }} • 
+                                    Сделок: {{ month.orders|length + (month.projects|selectattr('orders')|map(attribute='orders')|map('length')|sum) }}
+                                </small>
                             </a>
                         {% endfor %}
                     </div>
@@ -32,8 +35,40 @@
         </div>
     </div>
 
+    <!-- ✅ ДОБАВЛЕНО: Активные проекты с доходом -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Активные проекты</h5>
+            </div>
+            <div class="card-body">
+                {% if active_projects %}
+                    <div class="list-group">
+                        {% for item in active_projects %}
+                            <a href="/project/{{ item.project.id }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ item.project.name }}</h6>
+                                    <span class="badge bg-success rounded-pill">{{ "%.0f"|format(item.profit) }} ₽</span>
+                                </div>
+                                <small class="text-muted">
+                                    {{ item.project.month.name if item.project.month }} • 
+                                    Сделок: {{ item.project.orders|length }}
+                                </small>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">Нет активных проектов</p>
+                {% endif %}
+                <div class="mt-3">
+                    <a href="/projects" class="btn btn-sm btn-primary">Все проекты</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Статистика -->
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card">
             <div class="card-body">
                 <h5>Общая статистика</h5>

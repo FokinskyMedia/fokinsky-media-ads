@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Добавить сделку</h2>
+<h2>{% if request.path.startswith('/order/') and '/edit' in request.path %}Редактировать сделку{% else %}Добавить сделку{% endif %}</h2>
 <form method="post">
     {{ form.hidden_tag() }}
     
@@ -32,7 +32,8 @@
         </div>
     </div>
 
-    <!-- Рекламодатель -->
+    <!-- ✅ ИСПРАВЛЕНО: Показываем рекламодателя только если НЕТ проекта -->
+    {% if not project %}
     <div class="mb-3">
         {{ form.advertiser.label(class_='form-label') }}
         {{ form.advertiser(class_='form-control', onchange='toggleAdvertiserFields()') }}
@@ -50,21 +51,77 @@
             <input type="text" name="new_advertiser_telegram" class="form-control" placeholder="Необязательно">
         </div>
     </div>
+    {% else %}
+    <!-- ✅ ДОБАВЛЕНО: Показываем информацию о рекламодателе проекта -->
+    <div class="alert alert-info">
+        <strong>Рекламодатель проекта:</strong> {{ project.advertiser.name if project.advertiser else 'Не указан' }}
+    </div>
+    {% endif %}
 
-    <!-- Остальные поля -->
-    {% for field in form %}
-        {% if field.name not in ['blogger', 'advertiser', 'csrf_token'] %}
-            <div class="mb-3">
-                {{ field.label(class_='form-label') }}
-                {{ field(class_='form-control') }}
-                {% if field.errors %}
-                    <div class="text-danger">{{ field.errors[0] }}</div>
-                {% endif %}
-            </div>
+    <!-- Основные поля -->
+    <div class="mb-3">
+        {{ form.date.label(class_='form-label') }}
+        {{ form.date(class_='form-control', placeholder='25.12.2024 (необязательно)') }}
+        {% if form.date.errors %}
+            <div class="text-danger">{{ form.date.errors[0] }}</div>
         {% endif %}
-    {% endfor %}
+    </div>
+
+    <!-- ✅ ИСПРАВЛЕНО: Показываем поле проекта только если НЕТ проекта -->
+    {% if not project %}
+    <div class="mb-3">
+        {{ form.project.label(class_='form-label') }}
+        {{ form.project(class_='form-control') }}
+        <div class="form-text">Оставьте пустым для сделки без проекта</div>
+    </div>
+    {% else %}
+    <!-- ✅ ДОБАВЛЕНО: Показываем информацию о проекте -->
+    <div class="alert alert-info">
+        <strong>Проект:</strong> {{ project.name }}
+    </div>
+    <input type="hidden" name="project" value="{{ project.id }}">
+    {% endif %}
+
+    <div class="mb-3">
+        {{ form.product.label(class_='form-label') }}
+        {{ form.product(class_='form-control', placeholder='Название продукта или услуги') }}
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                {{ form.cost.label(class_='form-label') }}
+                {{ form.cost(class_='form-control', placeholder='0') }}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                {{ form.blogger_fee.label(class_='form-label') }}
+                {{ form.blogger_fee(class_='form-control', placeholder='0') }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Статус -->
+    <div class="mb-3">
+        {{ form.status.label(class_='form-label') }}
+        {{ form.status(class_='form-control') }}
+    </div>
+
+    <!-- Заметки -->
+    <div class="mb-3">
+        {{ form.notes.label(class_='form-label') }}
+        {{ form.notes(class_='form-control', rows='3', placeholder='Любые дополнительные заметки, комментарии, напоминания...') }}
+        <div class="form-text">Можно оставить пустым</div>
+    </div>
+
+    <div class="mb-3">
+        {{ form.link.label(class_='form-label') }}
+        {{ form.link(class_='form-control', placeholder='Ссылка на опубликованный пост') }}
+    </div>
     
-    <button class="btn btn-primary">Сохранить сделку</button>
+    <button class="btn btn-primary">{% if request.path.startswith('/order/') and '/edit' in request.path %}Сохранить{% else %}Создать сделку{% endif %}</button>
+    <a href="/orders" class="btn btn-secondary">Отмена</a>
 </form>
 
 <script>
@@ -74,52 +131,19 @@ function toggleBloggerFields() {
     newBloggerFields.style.display = bloggerSelect.value === '0' ? 'block' : 'none';
 }
 
+// ✅ ИСПРАВЛЕНО: Функция только если есть поле рекламодателя
 function toggleAdvertiserFields() {
     const advertiserSelect = document.querySelector('#advertiser');
     const newAdvertiserFields = document.getElementById('newAdvertiserFields');
-    newAdvertiserFields.style.display = advertiserSelect.value === '0' ? 'block' : 'none';
+    if (advertiserSelect && newAdvertiserFields) {
+        newAdvertiserFields.style.display = advertiserSelect.value === '0' ? 'block' : 'none';
+    }
 }
 
-// Инициализация при загрузке
+// ✅ ИСПРАВЛЕНО: Убрана блокировка проекта, т.к. теперь поле скрыто
 document.addEventListener('DOMContentLoaded', function() {
     toggleBloggerFields();
     toggleAdvertiserFields();
 });
-function setupSearch(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    
-    const options = Array.from(select.options);
-    
-    // Создаем поле поиска
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.className = 'form-control form-control-sm mb-2';
-    searchInput.placeholder = 'Поиск...';
-    searchInput.style.marginTop = '5px';
-    
-    searchInput.addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        options.forEach(option => {
-            if (option.value === '') return; // Не скрываем пустую опцию
-            const text = option.text.toLowerCase();
-            option.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    });
-    
-    select.parentNode.insertBefore(searchInput, select);
-}
-
-// Инициализация поиска
-document.addEventListener('DOMContentLoaded', function() {
-    toggleBloggerFields();
-    toggleAdvertiserFields();
-    
-    // Добавляем поиск в выпадающие списки
-    setupSearch('blogger');
-    setupSearch('advertiser');
-    setupSearch('project');
-});
-
 </script>
 {% endblock %}

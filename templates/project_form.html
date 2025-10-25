@@ -12,6 +12,33 @@
     {% endif %}
   </div>
 
+  <!-- ДОБАВЛЕН ВЫБОР РЕКЛАМОДАТЕЛЯ -->
+  <div class="mb-3">
+    <label class="form-label">Рекламодатель</label>
+    <select name="advertiser_id" class="form-control" required onchange="toggleAdvertiserFields()">
+      <option value="">-- Выберите рекламодателя --</option>
+      <option value="0">-- Новый рекламодатель --</option>  <!-- ✅ ДОБАВЛЕНО -->
+      {% for advertiser in advertisers %}
+        <option value="{{ advertiser.id }}">
+          {{ advertiser.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- ✅ ДОБАВЛЕНЫ ПОЛЯ ДЛЯ НОВОГО РЕКЛАМОДАТЕЛЯ -->
+  <div id="newAdvertiserFields" style="display: none;" class="border p-3 mb-3 rounded">
+    <h6>Новый рекламодатель</h6>
+    <div class="mb-2">
+      <label class="form-label">Название компании</label>
+      <input type="text" name="new_advertiser_name" class="form-control" placeholder="Введите название" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Telegram</label>
+      <input type="text" name="new_advertiser_telegram" class="form-control" placeholder="Необязательно">
+    </div>
+  </div>
+
   <!-- ВЫБОР МЕСЯЦА ТОЛЬКО ЕСЛИ НЕ ПЕРЕДАН ИЗ URL -->
   {% if show_month_select %}
   <div class="mb-3">
@@ -43,11 +70,6 @@
     {{ form.description(class_='form-control', rows='4', placeholder='Описание проекта') }}
   </div>
   
-  <div class="mb-3">
-    {{ form.status.label(class_='form-label') }}
-    {{ form.status(class_='form-control') }}
-  </div>
-  
   <button class="btn btn-primary">Создать проект</button>
   {% if preselected_month_id %}
     <a href="/month/{{ preselected_month_id }}" class="btn btn-secondary">Отмена</a>
@@ -55,4 +77,17 @@
     <a href="/projects" class="btn btn-secondary">Отмена</a>
   {% endif %}
 </form>
+
+<script>
+function toggleAdvertiserFields() {
+  const advertiserSelect = document.querySelector('[name="advertiser_id"]');
+  const newAdvertiserFields = document.getElementById('newAdvertiserFields');
+  newAdvertiserFields.style.display = advertiserSelect.value === '0' ? 'block' : 'none';
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+  toggleAdvertiserFields();
+});
+</script>
 {% endblock %}
