@@ -6,7 +6,6 @@ from wtforms.validators import DataRequired, Optional
 from datetime import date, datetime
 import os
 
-
 def allowed_file(filename):
     allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -15,18 +14,23 @@ def allowed_file(filename):
 app = Flask(__name__)
 db = SQLAlchemy()
 
-SITE_PASSWORD = os.environ.get('SITE_PASSWORD', '772556')
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-123')
+# ✅ ПРАВИЛЬНАЯ КОНФИГУРАЦИЯ БД (ЗАМЕНИТЕ ВАШУ)
+if os.environ.get('DATABASE_URL'):
+    # Для PostgreSQL на Railway/Render
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace('postgres://', 'postgresql://')
+else:
+    # Для локальной разработки (SQLite)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 
-# Конфигурация
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-this'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-123')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
+# Настройки аутентификации
+SITE_PASSWORD = os.environ.get('SITE_PASSWORD', '772556')
 
 # Инициализируем базу данных
 db.init_app(app)
-
 
 # МОДЕЛИ
 class Blogger(db.Model):
