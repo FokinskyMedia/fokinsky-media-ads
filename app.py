@@ -647,6 +647,10 @@ def update_order_notes(id):
     
     return jsonify({'success': False}), 400
 
+@app.route('/health')
+def health_check():
+    return {'status': 'ok', 'timestamp': datetime.utcnow().isoformat()}
+
 port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
     with app.app_context():
