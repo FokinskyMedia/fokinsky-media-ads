@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, TextAreaField, DecimalField, DateField
 from wtforms.validators import DataRequired, Optional
 from datetime import date, datetime
 import os
+
 
 def allowed_file(filename):
     allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
@@ -13,6 +14,9 @@ def allowed_file(filename):
 # Создаем экземпляры
 app = Flask(__name__)
 db = SQLAlchemy()
+
+SITE_PASSWORD = os.environ.get('SITE_PASSWORD', '772556')
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-123')
 
 # Конфигурация
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -153,6 +157,17 @@ def upcoming_exits(day=None):
     return upcoming[:10]
 
 # МАРШРУТЫ
+
+@app.before_request
+def require_login():
+    # Страницы которые доступны без пароля
+    if request.endpoint in ['login', 'static', 'health']:
+        return
+    
+    # Проверяем авторизацию
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
 @app.route('/')
 def index():
     months = Month.query.order_by(Month.created_at.desc()).all()
@@ -181,6 +196,53 @@ def index():
                          total_projects=total_projects,
                          total_months=total_months,
                          active_projects=projects_with_profit)  # ✅ ДОБАВЛЕНО
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if password == SITE_PASSWORD:
+            session['logged_in'] = True
+            flash('Успешный вход!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Неверный пароль', 'danger')
+    
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Вход - Fokinsky Media</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title text-center">Fokinsky Media</h4>
+                            <p class="text-center text-muted">Введите пароль для доступа</p>
+                            <form method="post">
+                                <div class="mb-3">
+                                    <input type="password" name="password" class="form-control" placeholder="Пароль" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Войти</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    flash('Вы вышли из системы', 'info')
+    return redirect(url_for('login'))
 
 @app.route('/month/<int:id>')
 def view_month(id):

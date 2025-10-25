@@ -126,12 +126,19 @@
             </a>
         </div>
         
-        
-        <!-- Простой текст справа -->
+        <!-- Правая часть навигации -->
         <div class="navbar-nav">
+            {% if session.logged_in %}
+            <div class="nav-link text-danger" style="cursor: pointer;">
+                <a href="/logout" class="text-danger text-decoration-none">
+                    <i class="fas fa-sign-out-alt me-1"></i>Выйти
+                </a>
+            </div>
+            {% else %}
             <div class="nav-link text-muted">
                 <small>Media & Ads</small>
             </div>
+            {% endif %}
         </div>
     </div>
 </nav>

@@ -6,7 +6,7 @@
     <tr>
       <th>Название</th>
       <th>Месяц</th>
-      <th>Статус</th>
+      <th>Доход</th>
       <th>Действия</th>
     </tr>
   </thead>
@@ -15,7 +15,7 @@
       <tr>
         <td>{{ p.name }}</td>
         <td>{{ p.month.name if p.month else '---' }}</td>
-        <td>{{ p.status }}</td>
+        <td>{{ "%.0f"|format(p.total_profit) if p.total_profit else '0' }} ₽</td>
         <td>
           <a href="/project/{{ p.id }}" class="btn btn-sm btn-primary">Открыть</a>
           <a href="/project/{{ p.id }}/edit" class="btn btn-sm btn-secondary">Ред.</a>
