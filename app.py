@@ -677,30 +677,45 @@ def edit_order(id):
     form.advertiser.data = o.advertiser_id
     form.project.data = o.project_id
     
-    if form.validate_on_submit():
-        # ПРЕОБРАЗОВАНИЕ ДАТЫ ИЗ ФОРМАТА дд.мм.гггг
+    # ✅ ИСПРАВЛЕНО: Используем request.method == 'POST' вместо form.validate_on_submit()
+    if request.method == 'POST':
+        print("✅ Форма отправлена, обрабатываем данные...")
+        
+        # Берем данные напрямую из формы
+        date_str = request.form.get('date', '')
+        blogger_id = request.form.get('blogger', type=int)
+        advertiser_id = request.form.get('advertiser', type=int)
+        project_id = request.form.get('project', type=int)
+        product = request.form.get('product', '')
+        cost = request.form.get('cost', type=float) or 0
+        blogger_fee = request.form.get('blogger_fee', type=float) or 0
+        status = request.form.get('status', '')
+        link = request.form.get('link', '')
+        
+        # Преобразование даты
         date_obj = None
-        if form.date.data:
+        if date_str:
             try:
-                # Преобразуем из дд.мм.гггг в datetime объект
-                date_obj = datetime.strptime(form.date.data, '%d.%m.%Y').date()
+                date_obj = datetime.strptime(date_str, '%d.%m.%Y').date()
             except ValueError:
-                flash('Неверный формат даты. Используйте дд.мм.гггг (например: 15.01.2024)', 'danger')
+                flash('Неверный формат даты', 'danger')
                 return render_template('order_form.html', form=form)
         
-        o.date = date_obj  # ИСПОЛЬЗУЕМ ПРЕОБРАЗОВАННУЮ ДАТУ
-        o.blogger_id = form.blogger.data
-        o.advertiser_id = form.advertiser.data
-        o.product = form.product.data
-        o.cost = form.cost.data or 0
-        o.blogger_fee = form.blogger_fee.data or 0
-        o.status = form.status.data
-        o.link = form.link.data
-        o.project_id = form.project.data
+        # Сохраняем изменения
+        o.date = date_obj
+        o.blogger_id = blogger_id
+        o.advertiser_id = advertiser_id
+        o.product = product
+        o.cost = cost
+        o.blogger_fee = blogger_fee
+        o.status = status
+        o.link = link
+        o.project_id = project_id
+        
         db.session.commit()
         flash('Сохранено', 'success')
         
-        # ✅ ИСПРАВЛЕНО: Возвращаем обратно в проект если сделка из проекта
+        # Редирект обратно в проект если сделка из проекта
         if o.project_id:
             return redirect(url_for('view_project', id=o.project_id))
         else:
