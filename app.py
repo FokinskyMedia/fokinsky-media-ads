@@ -16,16 +16,12 @@ def allowed_file(filename):
 app = Flask(__name__)
 db = SQLAlchemy()
 
-# ✅ РАБОЧАЯ КОНФИГУРАЦИЯ PostgreSQL
-database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    # Заменяем драйвер на pg8000
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql+pg8000://', 1)
-    elif database_url.startswith('postgresql://'):
-        database_url = database_url.replace('postgresql://', 'postgresql+pg8000://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+# ✅ КОНФИГУРАЦИЯ ДЛЯ PYTHONANYWHERE + MySQL
+if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+    # MySQL для PythonAnywhere
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://FokinskyMedia:Sashok1990@FokinskyMedia.mysql.pythonanywhere-services.com/FokinskyMedia$default'
 else:
+    # SQLite для локальной разработки
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
