@@ -745,8 +745,20 @@ def upload_document():
             return redirect(request.url)
         
         if file and allowed_file(file.filename):
+            # ✅ СОЗДАЕМ ПАПКУ ЕСЛИ ЕЕ НЕТ
+            upload_folder = app.config['UPLOAD_FOLDER']
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+                print(f"✅ Создана папка: {upload_folder}")
+            
             filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file_path = os.path.join(upload_folder, filename)
+            
+            # ✅ ПРОВЕРЯЕМ ЧТО ПАПКА СУЩЕСТВУЕТ ПЕРЕД СОХРАНЕНИЕМ
+            if not os.path.exists(upload_folder):
+                flash('Ошибка: папка для загрузок не существует', 'danger')
+                return redirect(request.url)
+                
             file.save(file_path)
             
             doc = Document(
@@ -808,27 +820,31 @@ def health_check():
 def update_database():
     with app.app_context():
         try:
+            # ✅ СОЗДАЕМ ПАПКУ ДЛЯ ЗАГРУЗОК
+            upload_folder = app.config['UPLOAD_FOLDER']
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+                print(f"✅ Создана папка для загрузок: {upload_folder}")
+            
             # Создаем таблицы если их нет
             db.create_all()
             
             # Проверяем есть ли поле telegram в таблице blogger
             from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
-            
-            # Проверяем и добавляем недостающие поля
             columns = [col['name'] for col in inspector.get_columns('blogger')]
             
             if 'telegram' not in columns:
                 print("Добавляем поле telegram в таблицу blogger...")
-                with db.engine.begin() as conn:
-                    conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
-                print("Поле telegram успешно добавлено!")
-            
-            # Создаем индексы если их нет
-            print("Проверяем индексы...")
-            
-            # Здесь можно добавить создание индексов если нужно
-            # Но лучше через миграции, пока просто создаем таблицы заново если нужно
+                
+                if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
+                    print("Поле telegram успешно добавлено в SQLite!")
+                else:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
+                    print("Поле telegram успешно добавлено в PostgreSQL!")
             
             print("База данных актуальна!")
             
@@ -839,7 +855,7 @@ def update_database():
             try:
                 db.drop_all()
                 db.create_all()
-                print("Таблицы успешно пересозданы со всеми индексами!")
+                print("Таблицы успешно пересозданы!")
             except Exception as e2:
                 print(f"Ошибка при пересоздании таблиц: {e2}")
 
