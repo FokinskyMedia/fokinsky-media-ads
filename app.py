@@ -699,7 +699,12 @@ def edit_order(id):
         o.project_id = form.project.data
         db.session.commit()
         flash('Сохранено', 'success')
-        return redirect(url_for('orders'))
+        
+        # ✅ ИСПРАВЛЕНО: Возвращаем обратно в проект если сделка из проекта
+        if o.project_id:
+            return redirect(url_for('view_project', id=o.project_id))
+        else:
+            return redirect(url_for('orders'))
     
     # Преобразуем дату обратно в строку для отображения в форме
     if o.date:
