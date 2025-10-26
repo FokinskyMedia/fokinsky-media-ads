@@ -672,6 +672,11 @@ def edit_order(id):
     form.advertiser.choices = [(a.id, a.name) for a in Advertiser.query.order_by(Advertiser.name).all()]
     form.project.choices = [(p.id, p.name) for p in Project.query.order_by(Project.name).all()]
     
+    # ✅ Устанавливаем выбранные значения для формы
+    form.blogger.data = o.blogger_id
+    form.advertiser.data = o.advertiser_id
+    form.project.data = o.project_id
+    
     if form.validate_on_submit():
         # ПРЕОБРАЗОВАНИЕ ДАТЫ ИЗ ФОРМАТА дд.мм.гггг
         date_obj = None
@@ -698,13 +703,7 @@ def edit_order(id):
     
     # Преобразуем дату обратно в строку для отображения в форме
     if o.date:
-        form.date.data = o.date.strftime('%d.%m.%Y')  # ИЗМЕНИЛИ НА %Y
-    
-    return render_template('order_form.html', form=form)
-    
-    # Преобразуем дату обратно в строку для отображения в форме
-    if o.date:
-        form.date.data = o.date.strftime('%d.%m.%Y') 
+        form.date.data = o.date.strftime('%d.%m.%Y')
     
     return render_template('order_form.html', form=form)
 
