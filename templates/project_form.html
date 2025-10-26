@@ -1,67 +1,72 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Создать проект</h2>
-<form method="post">
+
+<h2>{% if project %}Редактировать проект{% else %}Создать проект{% endif %}</h2>
+
+<form method="post" id="projectForm" onsubmit="return validateForm()">
   {{ form.hidden_tag() }}
   
   <div class="mb-3">
     {{ form.name.label(class_='form-label') }}
-    {{ form.name(class_='form-control') }}
+    {{ form.name(class_='form-control', id='projectName') }}
     {% if form.name.errors %}
       <div class="text-danger">{{ form.name.errors[0] }}</div>
     {% endif %}
   </div>
 
-  <!-- ДОБАВЛЕН ВЫБОР РЕКЛАМОДАТЕЛЯ -->
   <div class="mb-3">
-    <label class="form-label">Рекламодатель</label>
-    <select name="advertiser_id" class="form-control" required onchange="toggleAdvertiserFields()">
+    <label class="form-label">Рекламодатель *</label>
+    <select name="advertiser_id" class="form-control" id="advertiserSelect" required>
       <option value="">-- Выберите рекламодателя --</option>
-      <option value="0">-- Новый рекламодатель --</option>  <!-- ✅ ДОБАВЛЕНО -->
+      {% if not project %}
+        <option value="0">-- Новый рекламодатель --</option>
+      {% endif %}
       {% for advertiser in advertisers %}
-        <option value="{{ advertiser.id }}">
+        <option value="{{ advertiser.id }}" 
+                {% if (project and project.advertiser_id == advertiser.id) or (request.form.get('advertiser_id')|int == advertiser.id) %}selected{% endif %}>
           {{ advertiser.name }}
         </option>
       {% endfor %}
     </select>
   </div>
 
-  <!-- ✅ ДОБАВЛЕНЫ ПОЛЯ ДЛЯ НОВОГО РЕКЛАМОДАТЕЛЯ -->
+  <!-- Поля для нового рекламодателя -->
+  {% if not project %}
   <div id="newAdvertiserFields" style="display: none;" class="border p-3 mb-3 rounded">
     <h6>Новый рекламодатель</h6>
     <div class="mb-2">
-      <label class="form-label">Название компании</label>
-      <input type="text" name="new_advertiser_name" class="form-control" placeholder="Введите название" required>
+      <label class="form-label">Название компании *</label>
+      <input type="text" name="new_advertiser_name" class="form-control" id="newAdvertiserName" placeholder="Введите название">
     </div>
     <div class="mb-2">
       <label class="form-label">Telegram</label>
       <input type="text" name="new_advertiser_telegram" class="form-control" placeholder="Необязательно">
     </div>
   </div>
+  {% endif %}
 
-  <!-- ВЫБОР МЕСЯЦА ТОЛЬКО ЕСЛИ НЕ ПЕРЕДАН ИЗ URL -->
-  {% if show_month_select %}
-  <div class="mb-3">
-    <label class="form-label">Месяц</label>
-    <select name="month_id" class="form-control" required>
-      <option value="">-- Выберите месяц --</option>
-      {% for month in months %}
-        <option value="{{ month.id }}" {% if month.id == preselected_month_id|int %}selected{% endif %}>
-          {{ month.name }}
-        </option>
-      {% endfor %}
-    </select>
-  </div>
-  {% else %}
-    <!-- Скрытое поле с month_id -->
+  <!-- Автоматически привязываем к месяцу если передан month_id -->
+  {% if preselected_month_id %}
     <input type="hidden" name="month_id" value="{{ preselected_month_id }}">
     <div class="alert alert-info">
-      Проект будет создан в месяце: 
-      <strong>
+      <strong>Проект будет создан в месяце:</strong> 
+      {% for month in months %}
+        {% if month.id == preselected_month_id %}{{ month.name }}{% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <!-- Выбор месяца -->
+    <div class="mb-3">
+      <label class="form-label">Месяц *</label>
+      <select name="month_id" class="form-control" required>
+        <option value="">-- Выберите месяц --</option>
         {% for month in months %}
-          {% if month.id == preselected_month_id|int %}{{ month.name }}{% endif %}
+          <option value="{{ month.id }}" 
+                  {% if (project and project.month_id == month.id) or (request.form.get('month_id')|int == month.id) %}selected{% endif %}>
+            {{ month.name }}
+          </option>
         {% endfor %}
-      </strong>
+      </select>
     </div>
   {% endif %}
   
@@ -70,8 +75,13 @@
     {{ form.description(class_='form-control', rows='4', placeholder='Описание проекта') }}
   </div>
   
-  <button class="btn btn-primary">Создать проект</button>
-  {% if preselected_month_id %}
+  <button type="submit" class="btn btn-primary" id="submitBtn">
+    {% if project %}Сохранить изменения{% else %}Создать проект{% endif %}
+  </button>
+  
+  {% if project %}
+    <a href="/project/{{ project.id }}" class="btn btn-secondary">Отмена</a>
+  {% elif preselected_month_id %}
     <a href="/month/{{ preselected_month_id }}" class="btn btn-secondary">Отмена</a>
   {% else %}
     <a href="/projects" class="btn btn-secondary">Отмена</a>
@@ -80,14 +90,68 @@
 
 <script>
 function toggleAdvertiserFields() {
-  const advertiserSelect = document.querySelector('[name="advertiser_id"]');
+  const advertiserSelect = document.getElementById('advertiserSelect');
   const newAdvertiserFields = document.getElementById('newAdvertiserFields');
-  newAdvertiserFields.style.display = advertiserSelect.value === '0' ? 'block' : 'none';
+  const newAdvertiserName = document.getElementById('newAdvertiserName');
+  
+  if (advertiserSelect && newAdvertiserFields) {
+    if (advertiserSelect.value === '0') {
+      newAdvertiserFields.style.display = 'block';
+      if (newAdvertiserName) newAdvertiserName.required = true;
+    } else {
+      newAdvertiserFields.style.display = 'none';
+      if (newAdvertiserName) newAdvertiserName.required = false;
+    }
+  }
 }
 
-// Инициализация при загрузке
+function validateForm() {
+  console.log('🔍 Валидация формы...');
+  const advertiserSelect = document.getElementById('advertiserSelect');
+  const projectName = document.getElementById('projectName');
+  
+  // Базовая проверка
+  if (!projectName.value.trim()) {
+    alert('Введите название проекта');
+    return false;
+  }
+  
+  if (!advertiserSelect.value) {
+    alert('Выберите рекламодателя');
+    return false;
+  }
+  
+  // Проверка нового рекламодателя
+  if (advertiserSelect.value === '0') {
+    const newAdvertiserName = document.getElementById('newAdvertiserName');
+    if (!newAdvertiserName || !newAdvertiserName.value.trim()) {
+      alert('Введите название нового рекламодателя');
+      return false;
+    }
+  }
+  
+  console.log('✅ Форма валидна, отправляем...');
+  return true;
+}
+
+// Инициализация
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('🔧 Инициализация формы проекта');
   toggleAdvertiserFields();
+  
+  // Вешаем обработчик на изменение рекламодателя
+  const advertiserSelect = document.getElementById('advertiserSelect');
+  if (advertiserSelect) {
+    advertiserSelect.addEventListener('change', toggleAdvertiserFields);
+  }
+  
+  // Вешаем обработчик на кнопку отправки для отладки
+  const submitBtn = document.getElementById('submitBtn');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function(e) {
+      console.log('🖱️ Кнопка создания проекта нажата');
+    });
+  }
 });
 </script>
 {% endblock %}

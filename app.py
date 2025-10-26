@@ -44,9 +44,9 @@ class Blogger(db.Model):
     rkn_info = db.Column(db.String(300))
     telegram = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     __table_args__ = (
-        db.Index('ix_blogger_name', 'name'),
+        db.Index('ix_blogger_name', 'name'),  # ✅ БЕЗ unique=True
         db.Index('ix_blogger_platform', 'platform'),
     )
 
@@ -55,11 +55,10 @@ class Advertiser(db.Model):
     name = db.Column(db.String(200), nullable=False)
     telegram = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    __table_args__ = (
-        db.Index('ix_advertiser_name', 'name'),
-    )
 
+    __table_args__ = (
+        db.Index('ix_advertiser_name', 'name'),  # ✅ БЕЗ unique=True
+    )
 
 class Month(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -69,16 +68,14 @@ class Month(db.Model):
 
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
+    name = db.Column(db.String(200), nullable=False)  # ❌ УБИРАЕМ unique=True
     month_id = db.Column(db.Integer, db.ForeignKey('month.id'))
     advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'))
     description = db.Column(db.Text)
-    status = db.Column(db.String(50), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     advertiser = db.relationship('Advertiser', backref='projects')
-    
+
     __table_args__ = (
-        db.Index('ix_project_status', 'status'),
         db.Index('ix_project_month', 'month_id'),
         db.Index('ix_project_advertiser', 'advertiser_id'),
     )
@@ -103,15 +100,6 @@ class Order(db.Model):
     advertiser = db.relationship('Advertiser', backref='orders')
     project = db.relationship('Project', backref='orders')
     month = db.relationship('Month', backref='orders')
-    
-    __table_args__ = (
-        db.Index('ix_order_date', 'date'),
-        db.Index('ix_order_status', 'status'),
-        db.Index('ix_order_blogger', 'blogger_id'),
-        db.Index('ix_order_advertiser', 'advertiser_id'),
-        db.Index('ix_order_project', 'project_id'),
-        db.Index('ix_order_month', 'month_id'),
-    )
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -149,10 +137,7 @@ class AdvertiserForm(FlaskForm):
 class ProjectForm(FlaskForm):
     name = StringField('Название', validators=[DataRequired()])
     description = TextAreaField('Описание', validators=[Optional()])
-    status = SelectField('Статус', choices=[
-        ('active','Активный'),
-        ('finished','Завершен')
-    ])
+    # ❌ УБИРАЕМ поле status - оно не нужно
 
 class OrderForm(FlaskForm):
     date = StringField('Дата выхода (дд.мм.гггг)', validators=[Optional()])
@@ -177,7 +162,10 @@ def calculate_stats():
     total_revenue = db.session.query(db.func.sum(Order.cost)).scalar() or 0
     total_paid_out = db.session.query(db.func.sum(Order.blogger_fee)).scalar() or 0
     profit = (total_revenue - total_paid_out) or 0
-    active_projects = Project.query.filter_by(status='active').count()
+    
+    # ✅ ИСПРАВЛЕНО: Убираем фильтр по status, считаем все проекты
+    active_projects = Project.query.count()  # Просто считаем все проекты
+    
     return {
         'total_orders': total_orders,
         'revenue': total_revenue,
@@ -227,14 +215,13 @@ def index():
     # Ближайшие выходы - исправленный запрос
     upcoming = upcoming_exits()
     
-    # Активные проекты с прибылью - ОДНИМ запросом вместо N+1
+    # ✅ ИСПРАВЛЕНО: Убираем фильтр по status
     active_projects_data = db.session.query(
         Project,
         db.func.coalesce(db.func.sum(Order.cost - Order.blogger_fee), 0).label('profit')
     ).outerjoin(Order, Project.id == Order.project_id)\
-     .filter(Project.status == 'active')\
      .group_by(Project.id)\
-     .all()
+     .all()  # ❌ УБИРАЕМ .filter(Project.status == 'active')
     
     # Преобразуем в удобный формат
     projects_with_profit = []
@@ -442,58 +429,58 @@ def add_project():
     months = Month.query.order_by(Month.created_at.desc()).all()
     advertisers = Advertiser.query.order_by(Advertiser.name).all()
     
-    # Получаем month_id из параметра URL (если создаем из месяца)
-    month_id_from_url = request.args.get('month_id')
+    month_id_from_url = request.args.get('month_id', type=int)
     
     if request.method == 'POST':
-        # Если month_id передан в форме - используем его, иначе из URL
-        month_id = request.form.get('month_id') or month_id_from_url
-        advertiser_id = request.form.get('advertiser_id')
+        print("=" * 50)
+        print("🔍 POST запрос на создание проекта получен!")
+        print(f"📋 Данные формы: {dict(request.form)}")
         
-        # ✅ ДОБАВЛЕНО: Обработка нового рекламодателя
-        if advertiser_id == '0':  # Если выбран "Новый рекламодатель"
+        # Берем данные напрямую из формы
+        name = request.form.get('name', '').strip()
+        advertiser_id = request.form.get('advertiser_id', type=int)
+        month_id = request.form.get('month_id', type=int) or month_id_from_url
+        description = request.form.get('description', '')
+        
+        print(f"📝 Имя проекта: '{name}'")
+        print(f"🏢 ID рекламодателя: {advertiser_id}")
+        print(f"📅 ID месяца: {month_id}")
+        
+        # Обработка нового рекламодателя
+        if advertiser_id == 0:
             new_advertiser_name = request.form.get('new_advertiser_name', '').strip()
             if new_advertiser_name:
-                new_advertiser = Advertiser(
-                    name=new_advertiser_name,
-                    telegram=request.form.get('new_advertiser_telegram', '')
-                )
+                new_advertiser = Advertiser(name=new_advertiser_name)
                 db.session.add(new_advertiser)
-                db.session.flush()  # Получаем ID нового рекламодателя
+                db.session.flush()
                 advertiser_id = new_advertiser.id
-            else:
-                flash('Введите название рекламодателя', 'danger')
-                return render_template('project_form.html', form=form, months=months, 
-                                     advertisers=advertisers, show_month_select=show_month_select, 
-                                     preselected_month_id=month_id_from_url)
+                print(f"✅ Создан рекламодатель: {new_advertiser_name} (ID: {advertiser_id})")
         
-        if not month_id:
-            flash('Выберите месяц', 'danger')
-            return render_template('project_form.html', form=form, months=months, 
-                                 advertisers=advertisers, show_month_select=True)
-        
-        p = Project(
-            name=form.name.data.strip(), 
-            month_id=month_id,
-            advertiser_id=advertiser_id,
-            description=form.description.data, 
-            status=form.status.data
-        )
-        db.session.add(p)
-        db.session.commit()
-        flash('Проект добавлен', 'success')
-        
-        # Перенаправляем в месяц, если создавали из месяца
-        if month_id_from_url:
-            return redirect(url_for('view_month', id=month_id_from_url))
-        return redirect(url_for('projects'))
-    
-    # Определяем показывать ли выбор месяца
-    show_month_select = not bool(month_id_from_url)
+        # СОЗДАЕМ ПРОЕКТ
+        try:
+            p = Project(
+                name=name,
+                month_id=month_id,
+                advertiser_id=advertiser_id,
+                description=description
+            )
+            db.session.add(p)
+            db.session.commit()
+            
+            flash('✅ Проект успешно создан!', 'success')
+            print(f"🎉 Проект создан: {p.name} (ID: {p.id})")
+            
+            if month_id_from_url:
+                return redirect(url_for('view_month', id=month_id_from_url))
+            return redirect(url_for('projects'))
+            
+        except Exception as e:
+            print(f"💥 Ошибка: {e}")
+            flash('Ошибка при создании проекта', 'danger')
+            db.session.rollback()
     
     return render_template('project_form.html', form=form, months=months, 
-                         advertisers=advertisers,
-                         show_month_select=show_month_select, 
+                         advertisers=advertisers, 
                          preselected_month_id=month_id_from_url)
 
 @app.route('/project/<int:id>/edit', methods=['GET','POST'])
@@ -505,19 +492,18 @@ def edit_project(id):
     
     if request.method == 'POST':
         project.name = form.name.data.strip()
-        project.month_id = request.form.get('month_id')
-        project.advertiser_id = request.form.get('advertiser_id')
+        project.month_id = request.form.get('month_id', type=int)
+        project.advertiser_id = request.form.get('advertiser_id', type=int)
         project.description = form.description.data
-        project.status = form.status.data
+        # ❌ НЕТ СТАТУСА
         
         db.session.commit()
         flash('Проект обновлен', 'success')
         return redirect(url_for('view_project', id=project.id))
     
-    # ✅ ДОБАВЛЕНО: Передаем preselected_month_id для правильной работы шаблона
     return render_template('project_form.html', form=form, months=months,
                          advertisers=advertisers, project=project,
-                         preselected_month_id=project.month_id)  # ✅ ДОБАВЛЕНО
+                         preselected_month_id=project.month_id)
 
 @app.route('/project/<int:id>')
 def view_project(id):
@@ -816,44 +802,60 @@ def health_check():
 def update_database():
     with app.app_context():
         try:
-            # ✅ СОЗДАЕМ ПАПКУ ДЛЯ ЗАГРУЗОК
-            upload_folder = app.config['UPLOAD_FOLDER']
-            if not os.path.exists(upload_folder):
-                os.makedirs(upload_folder)
-                print(f"✅ Создана папка для загрузок: {upload_folder}")
+            print("🔄 Проверяем базу данных...")
             
-            # Создаем таблицы если их нет
-            db.create_all()
-            
-            # Проверяем есть ли поле telegram в таблице blogger
             from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
-            columns = [col['name'] for col in inspector.get_columns('blogger')]
             
-            if 'telegram' not in columns:
-                print("Добавляем поле telegram в таблицу blogger...")
-                
-                if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+            # ✅ ПРОВЕРЯЕМ СУЩЕСТВУЮЩИЕ ТАБЛИЦЫ
+            existing_tables = inspector.get_table_names()
+            print(f"📋 Существующие таблицы: {existing_tables}")
+            
+            # ✅ ЕСЛИ ТАБЛИЦ НЕТ - СОЗДАЕМ
+            required_tables = ['blogger', 'advertiser', 'project', 'order', 'month', 'document']
+            tables_missing = [t for t in required_tables if t not in existing_tables]
+            
+            if tables_missing:
+                print(f"🔄 Создаем отсутствующие таблицы: {tables_missing}")
+                db.create_all()
+            else:
+                print("✅ Все таблицы существуют")
+            
+            # ✅ ДОБАВЛЯЕМ ПОЛЕ telegram ЕСЛИ ЕГО НЕТ
+            try:
+                blogger_columns = [col['name'] for col in inspector.get_columns('blogger')]
+                if 'telegram' not in blogger_columns:
+                    print("🔄 Добавляем поле telegram в blogger...")
                     with db.engine.begin() as conn:
                         conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
-                    print("Поле telegram успешно добавлено в SQLite!")
+                    print("✅ Поле telegram добавлено!")
                 else:
-                    with db.engine.begin() as conn:
-                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
-                    print("Поле telegram успешно добавлено в PostgreSQL!")
+                    print("✅ Поле telegram уже существует")
+            except Exception as e:
+                print(f"⚠️ Ошибка при добавлении поля telegram: {e}")
             
-            print("База данных актуальна!")
+            # ✅ УБИРАЕМ УНИКАЛЬНЫЕ ИНДЕКСЫ ЕСЛИ ОНИ ЕСТЬ (БЕЗОПАСНО)
+            try:
+                print("🔍 Проверяем индексы...")
+                for table_name in ['blogger', 'advertiser', 'project']:
+                    indexes = inspector.get_indexes(table_name)
+                    for index in indexes:
+                        if index.get('unique') and any('name' in col for col in index.get('column_names', [])):
+                            print(f"🔄 Удаляем уникальный индекс {index['name']} из {table_name}...")
+                            with db.engine.begin() as conn:
+                                if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
+                                    conn.execute(text(f'DROP INDEX IF EXISTS {index["name"]}'))
+                                else:
+                                    conn.execute(text(f'DROP INDEX {index["name"]} ON {table_name}'))
+                            print(f"✅ Уникальный индекс удален")
+            except Exception as e:
+                print(f"⚠️ Ошибка при работе с индексами: {e}")
+            
+            print("🎉 База данных готова! Все данные сохранены.")
             
         except Exception as e:
-            print(f"Ошибка при обновлении базы данных: {e}")
-            print("Попробуем пересоздать таблицы...")
-            
-            try:
-                db.drop_all()
-                db.create_all()
-                print("Таблицы успешно пересозданы!")
-            except Exception as e2:
-                print(f"Ошибка при пересоздании таблиц: {e2}")
+            print(f"❌ Критическая ошибка: {e}")
+            # НЕ пересоздаем таблицы!
 
 port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
