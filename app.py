@@ -68,7 +68,7 @@ class Month(db.Model):
 
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)  # ❌ УБИРАЕМ unique=True
+    name = db.Column(db.String(200), nullable=False)
     month_id = db.Column(db.Integer, db.ForeignKey('month.id'))
     advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'))
     description = db.Column(db.Text)
@@ -79,6 +79,16 @@ class Project(db.Model):
         db.Index('ix_project_month', 'month_id'),
         db.Index('ix_project_advertiser', 'advertiser_id'),
     )
+    
+    @property
+    def total_profit(self):
+        """Вычисляем доход проекта как сумма (cost - blogger_fee) всех сделок проекта"""
+        if not self.orders:
+            return 0
+        
+        total_income = sum(order.cost or 0 for order in self.orders)
+        total_expenses = sum(order.blogger_fee or 0 for order in self.orders)
+        return total_income - total_expenses
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
