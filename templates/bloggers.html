@@ -27,7 +27,7 @@
         {% if search_query or platform_filter %}
             <div class="mt-2">
                 <small class="text-muted">
-                    Найдено: {{ bloggers|length }} блогеров
+                    Найдено: {{ bloggers.total }} блогеров
                     {% if search_query %} по запросу "{{ search_query }}"{% endif %}
                     {% if platform_filter %} на платформе {{ platform_filter }}{% endif %}
                 </small>
@@ -35,6 +35,18 @@
             </div>
         {% endif %}
     </div>
+</div>
+
+<!-- ИНФОРМАЦИЯ О ПАГИНАЦИИ -->
+<div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+    <small>
+        📊 Показано: <strong>{{ bloggers.items|length }}</strong> из <strong>{{ bloggers.total }}</strong> блогеров
+    </small>
+    {% if bloggers.pages > 1 %}
+    <small>
+        📄 Страница: <strong>{{ bloggers.page }}</strong> из <strong>{{ bloggers.pages }}</strong>
+    </small>
+    {% endif %}
 </div>
 
 <table class="table table-striped table-sm">
@@ -49,7 +61,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for b in bloggers %}
+    {% for b in bloggers.items %}
       <tr>
         <td>{{ b.name }}</td>
         <td>
@@ -94,4 +106,51 @@
     {% endfor %}
   </tbody>
 </table>
+
+{# ПАГИНАЦИЯ ДЛЯ БЛОГЕРОВ #}
+{% if bloggers.pages > 1 %}
+<div class="mt-4">
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if bloggers.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('bloggers', page=bloggers.prev_num, search=search_query, platform=platform_filter) }}">← Назад</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">← Назад</span>
+            </li>
+            {% endif %}
+            
+            {% for page_num in bloggers.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == bloggers.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('bloggers', page=page_num, search=search_query, platform=platform_filter) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if bloggers.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('bloggers', page=bloggers.next_num, search=search_query, platform=platform_filter) }}">Вперед →</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Вперед →</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
 {% endblock %}

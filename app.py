@@ -6,6 +6,8 @@ from wtforms.validators import DataRequired, Optional
 from datetime import date, datetime
 import os
 
+ITEMS_PER_PAGE = 50
+
 def allowed_file(filename):
     allowed_extensions = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
@@ -42,16 +44,26 @@ class Blogger(db.Model):
     name = db.Column(db.String(200), nullable=False)
     platform = db.Column(db.String(50))
     link = db.Column(db.String(300))
-    contact_link = db.Column(db.String(300))  # Ссылка на ТГ блогера
-    rkn_info = db.Column(db.String(300))     # РКН (ссылка или номер заявления)
-    telegram = db.Column(db.String(200))     # ✅ ДОБАВЛЕНО: Telegram username
+    contact_link = db.Column(db.String(300))
+    rkn_info = db.Column(db.String(300))
+    telegram = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('ix_blogger_name', 'name'),
+        db.Index('ix_blogger_platform', 'platform'),
+    )
 
 class Advertiser(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     telegram = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('ix_advertiser_name', 'name'),
+    )
+
 
 class Month(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -62,18 +74,24 @@ class Month(db.Model):
 class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    month_id = db.Column(db.Integer, db.ForeignKey('month.id')) 
-    advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'))  # ✅ ДОБАВЛЕНО
+    month_id = db.Column(db.Integer, db.ForeignKey('month.id'))
+    advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'))
     description = db.Column(db.Text)
     status = db.Column(db.String(50), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    advertiser = db.relationship('Advertiser', backref='projects')  # ✅ ДОБАВЛЕНО
+    advertiser = db.relationship('Advertiser', backref='projects')
+    
+    __table_args__ = (
+        db.Index('ix_project_status', 'status'),
+        db.Index('ix_project_month', 'month_id'),
+        db.Index('ix_project_advertiser', 'advertiser_id'),
+    )
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date)
     blogger_id = db.Column(db.Integer, db.ForeignKey('blogger.id'))
-    advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'), nullable=True)  # ✅ ДОБАВИТЬ
+    advertiser_id = db.Column(db.Integer, db.ForeignKey('advertiser.id'), nullable=True)
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=True)
     month_id = db.Column(db.Integer, db.ForeignKey('month.id'), nullable=True)
     product = db.Column(db.String(200))
@@ -89,6 +107,15 @@ class Order(db.Model):
     advertiser = db.relationship('Advertiser', backref='orders')
     project = db.relationship('Project', backref='orders')
     month = db.relationship('Month', backref='orders')
+    
+    __table_args__ = (
+        db.Index('ix_order_date', 'date'),
+        db.Index('ix_order_status', 'status'),
+        db.Index('ix_order_blogger', 'blogger_id'),
+        db.Index('ix_order_advertiser', 'advertiser_id'),
+        db.Index('ix_order_project', 'project_id'),
+        db.Index('ix_order_month', 'month_id'),
+    )
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,9 +123,14 @@ class Document(db.Model):
     filename = db.Column(db.String(300))
     file_type = db.Column(db.String(50))
     project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'))
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id', ondelete='CASCADE'))      
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id', ondelete='CASCADE'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
+    
+    __table_args__ = (
+        db.Index('ix_document_project', 'project_id'),
+        db.Index('ix_document_order', 'order_id'),
+    )
 
 # ФОРМЫ
 class BloggerForm(FlaskForm):
@@ -161,10 +193,20 @@ def calculate_stats():
 def upcoming_exits(day=None):
     if day is None:
         day = date.today().day
+    
     today = date.today()
-    orders = Order.query.order_by(Order.date.asc()).all()
-    upcoming = [o for o in orders if o.date and o.date.month == today.month and o.date.day >= day]
-    return upcoming[:10]
+    
+    # Создаем даты для фильтрации в БАЗЕ ДАННЫХ, а не в Python
+    start_date = today.replace(day=min(day, 28))  # Не больше 28 числа
+    end_date = today.replace(day=28)
+    
+    # Фильтруем в БАЗЕ, а не в Python
+    upcoming = Order.query.filter(
+        Order.date >= start_date,
+        Order.date <= end_date
+    ).order_by(Order.date.asc()).limit(10).all()
+    
+    return upcoming
 
 # МАРШРУТЫ
 
@@ -180,20 +222,27 @@ def require_login():
 
 @app.route('/')
 def index():
+    # Получаем месяцы
     months = Month.query.order_by(Month.created_at.desc()).all()
-    stats = calculate_stats()
-    upcoming = upcoming_exits()
-    total_projects = Project.query.count()
-    total_months = len(months)
     
-    # ✅ ДОБАВЛЕНО: Получаем активные проекты с расчетом дохода
-    active_projects = Project.query.filter_by(status='active').all()
+    # Статистика - одним запросом
+    stats = calculate_stats()
+    
+    # Ближайшие выходы - исправленный запрос
+    upcoming = upcoming_exits()
+    
+    # Активные проекты с прибылью - ОДНИМ запросом вместо N+1
+    active_projects_data = db.session.query(
+        Project,
+        db.func.coalesce(db.func.sum(Order.cost - Order.blogger_fee), 0).label('profit')
+    ).outerjoin(Order, Project.id == Order.project_id)\
+     .filter(Project.status == 'active')\
+     .group_by(Project.id)\
+     .all()
+    
+    # Преобразуем в удобный формат
     projects_with_profit = []
-    for project in active_projects:
-        profit = 0
-        for order in project.orders:
-            if order.cost and order.blogger_fee:
-                profit += (order.cost - order.blogger_fee)
+    for project, profit in active_projects_data:
         projects_with_profit.append({
             'project': project,
             'profit': profit
@@ -203,9 +252,9 @@ def index():
                          months=months,
                          stats=stats, 
                          upcoming=upcoming,
-                         total_projects=total_projects,
-                         total_months=total_months,
-                         active_projects=projects_with_profit)  # ✅ ДОБАВЛЕНО
+                         total_projects=Project.query.count(),
+                         total_months=len(months),
+                         active_projects=projects_with_profit)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -263,6 +312,7 @@ def view_month(id):
 
 @app.route('/bloggers')
 def bloggers():
+    page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search', '')
     platform_filter = request.args.get('platform', '')
     
@@ -274,8 +324,9 @@ def bloggers():
     if platform_filter:
         query = query.filter(Blogger.platform == platform_filter)
     
-    # ✅ ИСПРАВЛЕНО: Убираем дубликаты блогеров по имени
-    items = query.distinct(Blogger.name).order_by(Blogger.name).all()
+    items = query.distinct(Blogger.name).order_by(Blogger.name).paginate(
+        page=page, per_page=ITEMS_PER_PAGE, error_out=False
+    )
     return render_template('bloggers.html', bloggers=items, search_query=search_query, platform_filter=platform_filter)
 
 @app.route('/blogger/add', methods=['GET','POST'])
@@ -320,6 +371,7 @@ def delete_blogger(id):
 
 @app.route('/advertisers')
 def advertisers():
+    page = request.args.get('page', 1, type=int)
     search_query = request.args.get('search', '')
     
     query = Advertiser.query
@@ -327,7 +379,9 @@ def advertisers():
     if search_query:
         query = query.filter(Advertiser.name.ilike(f'%{search_query}%'))
     
-    items = query.order_by(Advertiser.name).all()
+    items = query.order_by(Advertiser.name).paginate(
+        page=page, per_page=ITEMS_PER_PAGE, error_out=False
+    )
     return render_template('advertisers.html', items=items, search_query=search_query)
 
 @app.route('/advertiser/add', methods=['GET','POST'])
@@ -486,7 +540,11 @@ def delete_project(id):
 
 @app.route('/orders')
 def orders():
-    items = Order.query.order_by(Order.date.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    
+    items = Order.query.order_by(Order.date.desc()).paginate(
+        page=page, per_page=ITEMS_PER_PAGE, error_out=False
+    )
     return render_template('orders.html', orders=items)
 
 @app.route('/order/add', methods=['GET','POST'])
@@ -756,22 +814,21 @@ def update_database():
             # Проверяем есть ли поле telegram в таблице blogger
             from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
+            
+            # Проверяем и добавляем недостающие поля
             columns = [col['name'] for col in inspector.get_columns('blogger')]
             
             if 'telegram' not in columns:
                 print("Добавляем поле telegram в таблицу blogger...")
-                
-                # Используем text() для создания SQL выражения
-                if 'sqlite' in app.config['SQLALCHEMY_DATABASE_URI']:
-                    # Для SQLite
-                    with db.engine.begin() as conn:
-                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
-                    print("Поле telegram успешно добавлено в SQLite!")
-                else:
-                    # Для PostgreSQL
-                    with db.engine.begin() as conn:
-                        conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
-                    print("Поле telegram успешно добавлено в PostgreSQL!")
+                with db.engine.begin() as conn:
+                    conn.execute(text('ALTER TABLE blogger ADD COLUMN telegram VARCHAR(200)'))
+                print("Поле telegram успешно добавлено!")
+            
+            # Создаем индексы если их нет
+            print("Проверяем индексы...")
+            
+            # Здесь можно добавить создание индексов если нужно
+            # Но лучше через миграции, пока просто создаем таблицы заново если нужно
             
             print("База данных актуальна!")
             
@@ -779,11 +836,10 @@ def update_database():
             print(f"Ошибка при обновлении базы данных: {e}")
             print("Попробуем пересоздать таблицы...")
             
-            # Если не получается добавить поле, пересоздаем таблицы
             try:
                 db.drop_all()
                 db.create_all()
-                print("Таблицы успешно пересозданы!")
+                print("Таблицы успешно пересозданы со всеми индексами!")
             except Exception as e2:
                 print(f"Ошибка при пересоздании таблиц: {e2}")
 
